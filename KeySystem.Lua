@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - KEYAUTH INTEGRATION FIXED ]] --
+-- [[ ZERVXHUB - KEYAUTH FIXED & LAYER UPGRADE ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -16,7 +16,7 @@ local KeyAuthApp = {
 
 local SessionId = nil
 
--- [إصلاح] تعديل الرابط والدالة لضمان نجاح تهيئة الاتصال بخوادم KeyAuth
+-- دالة محسنة لإرسال الطلبات متوافقة تماماً مع بروتوكولات المشغلات الحديثة
 local function KeyAuthRequest(data)
     local success, response = pcall(function()
         return game:HttpGet("https://keyauth.win?" .. data)
@@ -27,7 +27,7 @@ local function KeyAuthRequest(data)
     return nil
 end
 
--- تهيئة الجلسة مع خوادم KeyAuth عند تشغيل السكربت
+-- تهيئة الجلسة (Initialization)
 local initData = string.format("type=init&name=%s&ownerid=%s&secret=%s&version=%s", 
     HttpService:UrlEncode(KeyAuthApp.Name), 
     HttpService:UrlEncode(KeyAuthApp.OwnerId), 
@@ -42,7 +42,7 @@ else
     warn("[ZervxHub] Failed to initialize KeyAuth Session.")
 end
 
--- إنشاء واجهة نظام المفتاح للموبايل
+-- إنشاء واجهة نظام المفتاح المحدثة (ترتيب الظهور في المقدمة)
 local KeyGui = Instance.new("ScreenGui")
 local KeyFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -53,14 +53,19 @@ KeyGui.Name = "ZervxHub_KeySystem"
 KeyGui.Parent = TargetGuiContainer
 KeyGui.ResetOnSpawn = false
 
+-- [تعديل هام] رفع الترتيب والطبقة لتظهر فوق واجهات اللعبة والـ Slots
+KeyGui.DisplayOrder = 999999
+KeyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
 KeyFrame.Name = "KeyFrame"
 KeyFrame.Parent = KeyGui
 KeyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-KeyFrame.Position = UDim2.new(0.3, 0, 0.3, 0)
+KeyFrame.Position = UDim2.new(0.35, 0, 0.35, 0) -- تعديل موقع القائمة لتتوسط الشاشة بشكل مريح
 KeyFrame.Size = UDim2.new(0, 300, 0, 180)
 KeyFrame.Active = true
+KeyFrame.ZIndex = 10
 
--- نظام السحب المتوافق مع شاشات اللمس
+-- نظام السحب المتوافق مع الماك والموبايل
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 KeyFrame.InputBegan:Connect(function(input)
@@ -91,6 +96,7 @@ Title.Font = Enum.Font.SourceSansBold
 Title.Text = "  🔑 ZervxHub | KeyAuth Protection"
 Title.TextColor3 = Color3.fromRGB(255, 165, 0)
 Title.TextSize = 16
+Title.ZIndex = 11
 
 TextBox.Name = "TextBox"
 TextBox.Parent = KeyFrame
@@ -102,6 +108,7 @@ TextBox.PlaceholderText = "Enter KeyAuth Key..."
 TextBox.Text = ""
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.TextSize = 14
+TextBox.ZIndex = 11
 
 CheckButton.Name = "CheckButton"
 CheckButton.Parent = KeyFrame
@@ -112,8 +119,9 @@ CheckButton.Font = Enum.Font.SourceSansBold
 CheckButton.Text = "Verify Key"
 CheckButton.TextColor3 = Color3.fromRGB(25, 25, 25)
 CheckButton.TextSize = 16
+CheckButton.ZIndex = 11
 
--- التحقق من المفتاح عبر خوادم السيرفر عند الضغط
+-- معالجة فحص المفتاح
 CheckButton.MouseButton1Click:Connect(function()
     if not SessionId then
         CheckButton.Text = "Session Error! Re-execute Script."
@@ -139,7 +147,7 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(1.5)
         KeyGui:Destroy()
         
-        -- تشغيل السكربت الأساسي تلقائياً بعد المصادقة الناجحة
+        -- استدعاء السكربت الأساسي
         loadstring(game:HttpGet("https://githubusercontent.com"))()
     else
         local errMsg = (loginResult and loginResult.message) or "Invalid Key!"
