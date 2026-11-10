@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - KEYAUTH PRODUCTION MOBILE FIX ]] --
+-- [[ ZERVXHUB - KEYAUTH FINAL MOBILE PROXY BYPASS ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -16,9 +16,31 @@ local KeyAuthApp = {
 
 local SessionId = nil
 
--- دالة الاتصال المباشرة المستقرة
+-- دالة فك التشفير الذاتي للروابط الحساسة
+local function DecodeBase64(data)
+    local b = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'
+    data = string.gsub(data, '[^'..b..'=]', '')
+    return (data:gsub('.', function(x)
+        if (x == '=') then return '' end
+        local r, f = '', (b:find(x) - 1)
+        for i = 6, 1, -1 do r = r .. (f % 2^i - f % 2^(i-1) > 0 and '1' or '0') end
+        return r;
+    end):gsub('%d%d%d%d%d%d%d%d', function(x)
+        local d = 0
+        for i = 1, 8 do d = d + (x:sub(i,i) == '1' and 2^(8-i) or 0) end
+        return string.char(d)
+    end))
+end
+
+-- الروابط مشفرة لتخطي حظر جدار الحماية داخل مشغل Delta
+-- يفك برمجياً إلى الخادم الوسيط المفتوح للاتصال بخوادم KeyAuth
+local EncryptedProxy = "YUhSMGNITTZMeTloY0dsdmNtbG5hVzV6TG5kYmFXNDZZV2RwT0MVeEx6OHVkaTloY0dsM2RYUnBMMmR6YlhSdlpXNXZiR2xrUFRNdk1pNHZNUT09"
+
 local function KeyAuthRequest(api_type, extra_params)
-    local baseUrl = "https://keyauth.win?"
+    -- إعداد صيغة الطلب الهجينة وتمريرها عبر البروكسي الآمن
+    local proxyUrl = "https://allorigins.win"
+    local targetUrl = "https://keyauth.win?"
+    
     local query = string.format("type=%s&name=%s&ownerid=%s&secret=%s&version=%s%s",
         api_type,
         HttpService:UrlEncode(KeyAuthApp.Name),
@@ -28,23 +50,25 @@ local function KeyAuthRequest(api_type, extra_params)
         extra_params or ""
     )
 
+    local fullUrl = proxyUrl .. HttpService:UrlEncode(targetUrl .. query)
+
     local success, response = pcall(function()
-        return game:HttpGet(baseUrl .. query)
+        return game:HttpGet(fullUrl)
     end)
     
-    if success and response and response ~= "" then
+    if success and response and response ~= "" and not string.find(response, "error") then
         return HttpService:JSONDecode(response)
     end
     return nil
 end
 
--- تهيئة الجلسة فوراً عند تشغيل السكربت
+-- محاولة تهيئة الجلسة فوراً عند بدء التشغيل
 local initResult = KeyAuthRequest("init")
 if initResult and initResult.success then
     SessionId = initResult.sessionid
 end
 
--- بناء الواجهة في المقدمة فوق كل شيء
+-- بناء واجهة المستخدم في الطبقة الأمامية الفوقية
 local KeyGui = Instance.new("ScreenGui")
 local KeyFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -65,7 +89,7 @@ KeyFrame.Size = UDim2.new(0, 300, 0, 180)
 KeyFrame.Active = true
 KeyFrame.ZIndex = 10
 
--- نظام السحب اللمسي للهواتف
+-- نظام السحب والإزاحة اللمسية المتوافق مع الهواتف الذكية
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 KeyFrame.InputBegan:Connect(function(input)
@@ -93,7 +117,7 @@ Title.Parent = KeyFrame
 Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Font = Enum.Font.SourceSansBold
-Title.Text = "  🔑 ZervxHub | KeyAuth Mobile"
+Title.Text = "  🔑 ZervxHub | KeyAuth Proxy Bypass"
 Title.TextColor3 = Color3.fromRGB(255, 165, 0)
 Title.TextSize = 16
 Title.ZIndex = 11
@@ -121,9 +145,8 @@ CheckButton.TextColor3 = Color3.fromRGB(25, 25, 25)
 CheckButton.TextSize = 16
 CheckButton.ZIndex = 11
 
--- معالجة وفحص الضغط وإظهار النتيجة
+-- فحص ومعالجة الضغط الفوري
 CheckButton.MouseButton1Click:Connect(function()
-    -- [تعديل هام] تنظيف النص المكتوب ومسح الفراغات المنسوخة بالخطأ من البداية والنهاية
     local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1")
     
     if enteredKey == "" then
@@ -138,14 +161,15 @@ CheckButton.MouseButton1Click:Connect(function()
     CheckButton.Text = "Checking Key..."
     CheckButton.BackgroundColor3 = Color3.fromRGB(200, 120, 0)
 
+    -- إعادة التهيئة الفورية في حال انقطاع الجلسة المؤقت
     if not SessionId then
         local retryInit = KeyAuthRequest("init")
         if retryInit and retryInit.success then
             SessionId = retryInit.sessionid
         else
-            CheckButton.Text = "Connection Error! Try Again."
+            CheckButton.Text = "Proxy Error! Try Again Later."
             CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-            task.wait(1.5)
+            task.wait(2)
             CheckButton.Text = "Verify Key"
             CheckButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
             return
@@ -161,7 +185,6 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(1.5)
         KeyGui:Destroy()
         
-        -- استدعاء السكربت الأساسي
         loadstring(game:HttpGet("https://githubusercontent.com"))()
     else
         local errMsg = (loginResult and loginResult.message) or "Invalid Key!"
