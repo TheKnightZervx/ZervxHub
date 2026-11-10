@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - KEYAUTH FINAL MOBILE FIX ]] --
+-- [[ ZERVXHUB - KEYAUTH PRODUCTION MOBILE FIX ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -16,7 +16,7 @@ local KeyAuthApp = {
 
 local SessionId = nil
 
--- دالة الاتصال المحسنة والمطورة للتخطي الكامل مع معالجة الاستجابة
+-- دالة الاتصال المباشرة المستقرة
 local function KeyAuthRequest(api_type, extra_params)
     local baseUrl = "https://keyauth.win?"
     local query = string.format("type=%s&name=%s&ownerid=%s&secret=%s&version=%s%s",
@@ -38,13 +38,13 @@ local function KeyAuthRequest(api_type, extra_params)
     return nil
 end
 
--- تهيئة الجلسة بشكل فوري ومباشر
+-- تهيئة الجلسة فوراً عند تشغيل السكربت
 local initResult = KeyAuthRequest("init")
 if initResult and initResult.success then
     SessionId = initResult.sessionid
 end
 
--- بناء الواجهة فوراً في المقدمة فوق كل شيء
+-- بناء الواجهة في المقدمة فوق كل شيء
 local KeyGui = Instance.new("ScreenGui")
 local KeyFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -65,7 +65,7 @@ KeyFrame.Size = UDim2.new(0, 300, 0, 180)
 KeyFrame.Active = true
 KeyFrame.ZIndex = 10
 
--- نظام السحب اللمسي المتوافق مع الهواتف
+-- نظام السحب اللمسي للهواتف
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 KeyFrame.InputBegan:Connect(function(input)
@@ -121,9 +121,11 @@ CheckButton.TextColor3 = Color3.fromRGB(25, 25, 25)
 CheckButton.TextSize = 16
 CheckButton.ZIndex = 11
 
--- معالجة وفحص الضغط وإظهار النتيجة فوراً
+-- معالجة وفحص الضغط وإظهار النتيجة
 CheckButton.MouseButton1Click:Connect(function()
-    local enteredKey = TextBox.Text
+    -- [تعديل هام] تنظيف النص المكتوب ومسح الفراغات المنسوخة بالخطأ من البداية والنهاية
+    local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1")
+    
     if enteredKey == "" then
         CheckButton.Text = "Please Enter a Key!"
         CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
@@ -136,19 +138,21 @@ CheckButton.MouseButton1Click:Connect(function()
     CheckButton.Text = "Checking Key..."
     CheckButton.BackgroundColor3 = Color3.fromRGB(200, 120, 0)
 
-    -- إعادة محاولة التهيئة الذكية إذا كانت الجلسة معلقة لضمان وصول الطلب
     if not SessionId then
         local retryInit = KeyAuthRequest("init")
         if retryInit and retryInit.success then
             SessionId = retryInit.sessionid
         else
-            -- محاكاة فحص محلية احتياطية سريعة لمنع تجميد الزر في حال تعطل اتصال السيرفر بالكامل
-            CheckButton.Text = "Connection Error! Retrying..."
-            task.wait(1)
+            CheckButton.Text = "Connection Error! Try Again."
+            CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            task.wait(1.5)
+            CheckButton.Text = "Verify Key"
+            CheckButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+            return
         end
     end
 
-    local extra = string.format("&key=%s&sessionid=%s", HttpService:UrlEncode(enteredKey), HttpService:UrlEncode(SessionId or ""))
+    local extra = string.format("&key=%s&sessionid=%s", HttpService:UrlEncode(enteredKey), HttpService:UrlEncode(SessionId))
     local loginResult = KeyAuthRequest("key", extra)
 
     if loginResult and loginResult.success then
@@ -160,7 +164,6 @@ CheckButton.MouseButton1Click:Connect(function()
         -- استدعاء السكربت الأساسي
         loadstring(game:HttpGet("https://githubusercontent.com"))()
     else
-        -- إظهار سبب الخطأ القادم من سيرفر KeyAuth مباشرة (خاطئ، منتهي، إلخ)
         local errMsg = (loginResult and loginResult.message) or "Invalid Key!"
         CheckButton.Text = "Error: " .. errMsg
         CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
