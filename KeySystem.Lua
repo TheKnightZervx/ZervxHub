@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - SECURE LOCAL KEY SYSTEM FIXED ]] --
+-- [[ ZERVXHUB - SECURE LOCAL KEY SYSTEM ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -109,8 +109,8 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(1.2)
         KeyGui:Destroy()
         
-        -- [إصلاح قاطع] استدعاء الرابط الكامل والصحيح للسكربت الأساسي لـ ZervxHub
-        loadstring(game:HttpGet("https://githubusercontent.com"))()
+        -- [تم الإصلاح] استدعاء الرابط الكامل والآمن لملف سكربتك الأساسي الحالي دون تعديله
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
     else
         CheckButton.Text = "Error: Invalid Key!"
         CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
