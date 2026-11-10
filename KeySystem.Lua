@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - KEYAUTH FIXED HTTP PROTOCOL ]] --
+-- [[ ZERVXHUB - HYBRID KEYAUTH INTEGRATION ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -16,13 +16,10 @@ local KeyAuthApp = {
 
 local SessionId = nil
 
--- دالة متطورة تستخدم نظام طلبات المشغلات (Request) لتخطي حظر الاتصال
-local function KeyAuthPost(api_type, extra_params)
-    local req_fn = (syn and syn.request) or (http and http.request) or request
-    if not req_fn then return nil end
-    
-    local url = "https://keyauth.win"
-    local body = string.format("type=%s&name=%s&ownerid=%s&secret=%s&version=%s%s",
+-- دالة الاتصال الهجينة الذكية لمنع انهيار السكربت
+local function KeyAuthRequest(api_type, extra_params)
+    local url = "https://keyauth.win?"
+    local query = string.format("type=%s&name=%s&ownerid=%s&secret=%s&version=%s%s",
         api_type,
         HttpService:UrlEncode(KeyAuthApp.Name),
         HttpService:UrlEncode(KeyAuthApp.OwnerId),
@@ -30,34 +27,43 @@ local function KeyAuthPost(api_type, extra_params)
         HttpService:UrlEncode(KeyAuthApp.Version),
         extra_params or ""
     )
-    
-    local success, response = pcall(function()
-        return req_fn({
-            Url = url,
-            Method = "POST",
-            Headers = {
-                ["Content-Type"] = "application/x-www-form-urlencoded"
-            },
-            Body = body
-        })
-    end)
-    
-    if success and response and response.Body then
-        return HttpService:JSONDecode(response.Body)
+
+    -- المحاولة الأولى: باستخدام بروتوكول طلبات المشغلات المتقدم
+    local req_fn = (syn and syn.request) or (http and http.request) or request
+    if req_fn then
+        local success, response = pcall(function()
+            return req_fn({
+                Url = "https://keyauth.win",
+                Method = "POST",
+                Headers = {["Content-Type"] = "application/x-www-form-urlencoded"},
+                Body = query
+            })
+        end)
+        if success and response and response.Body then
+            return HttpService:JSONDecode(response.Body)
+        end
     end
+
+    -- المحاولة الثانية (الاحتياطية): باستخدام الطريقة القياسية المستقرة إذا فشلت الأولى
+    local success, response = pcall(function()
+        return game:HttpGet(url .. query)
+    end)
+    if success and response then
+        return HttpService:JSONDecode(response)
+    end
+    
     return nil
 end
 
--- تهيئة الجلسة بشكل صحيح عبر بروتوكول POST
-local initResult = KeyAuthPost("init")
-
+-- تهيئة الجلسة
+local initResult = KeyAuthRequest("init")
 if initResult and initResult.success then
     SessionId = initResult.sessionid
 else
-    warn("[ZervxHub] Failed to initialize KeyAuth Session.")
+    warn("[ZervxHub] Session Init Fallback Triggered.")
 end
 
--- إنشاء واجهة نظام المفتاح للموبايل في المقدمة
+-- إنشاء واجهة نظام المفتاح للموبايل في المقدمة فوق كل شيء
 local KeyGui = Instance.new("ScreenGui")
 local KeyFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -78,7 +84,7 @@ KeyFrame.Size = UDim2.new(0, 300, 0, 180)
 KeyFrame.Active = true
 KeyFrame.ZIndex = 10
 
--- نظام السحب المتوافق مع شاشات اللمس
+-- نظام السحب المتوافق مع شاشات اللمس للهواتف
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 KeyFrame.InputBegan:Connect(function(input)
@@ -134,20 +140,27 @@ CheckButton.TextColor3 = Color3.fromRGB(25, 25, 25)
 CheckButton.TextSize = 16
 CheckButton.ZIndex = 11
 
--- معالجة التحقق عند الضغط
+-- معالجة فحص المفتاح عند الضغط
 CheckButton.MouseButton1Click:Connect(function()
+    local enteredKey = TextBox.Text
+    
+    -- إذا واجه السكربت مشكلة تجميد أولية للجلسة، يقوم بعمل فحص فوري وسريع هنا مجدداً لإنقاذ التشغيل
     if not SessionId then
-        CheckButton.Text = "Session Error! Re-execute Script."
-        CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
-        return
+        local retryInit = KeyAuthRequest("init")
+        if retryInit and retryInit.success then
+            SessionId = retryInit.sessionid
+        else
+            CheckButton.Text = "Connection Error! Try Again."
+            CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+            return
+        end
     end
 
-    local enteredKey = TextBox.Text
     CheckButton.Text = "Checking Key..."
     CheckButton.BackgroundColor3 = Color3.fromRGB(200, 120, 0)
 
     local extra = string.format("&key=%s&sessionid=%s", HttpService:UrlEncode(enteredKey), HttpService:UrlEncode(SessionId))
-    local loginResult = KeyAuthPost("key", extra)
+    local loginResult = KeyAuthRequest("key", extra)
 
     if loginResult and loginResult.success then
         CheckButton.Text = "Access Granted! Loading..."
@@ -155,6 +168,7 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(1.5)
         KeyGui:Destroy()
         
+        -- استدعاء السكربت الأساسي المطور للموبايل
         loadstring(game:HttpGet("https://githubusercontent.com"))()
     else
         local errMsg = (loginResult and loginResult.message) or "Invalid Key!"
