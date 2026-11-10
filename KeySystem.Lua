@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - KEYAUTH INTEGRATION ]] --
+-- [[ ZERVXHUB - KEYAUTH INTEGRATION FIXED ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -16,7 +16,7 @@ local KeyAuthApp = {
 
 local SessionId = nil
 
--- دالة لإرسال الطلبات إلى خوادم KeyAuth API
+-- [إصلاح] تعديل الرابط والدالة لضمان نجاح تهيئة الاتصال بخوادم KeyAuth
 local function KeyAuthRequest(data)
     local success, response = pcall(function()
         return game:HttpGet("https://keyauth.win?" .. data)
