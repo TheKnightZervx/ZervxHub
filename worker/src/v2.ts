@@ -172,6 +172,25 @@ export async function handleV2(
     return respond({ games: result.results }, 200, origin);
   }
 
+  if (request.method === "GET" && url.pathname === "/v2/admin/developers") {
+    const denied = await requireAdmin(request, env, origin);
+    if (denied) return denied;
+    const result = await env.DB.prepare(
+      `SELECT id AS developerId, discord_user_id AS discordUserId,
+         display_name AS displayName, status, created_at AS createdAt
+       FROM developers
+       ORDER BY created_at DESC
+       LIMIT 100`
+    ).all<{
+      developerId: string;
+      discordUserId: string;
+      displayName: string;
+      status: string;
+      createdAt: number;
+    }>();
+    return respond({ developers: result.results }, 200, origin);
+  }
+
   if (request.method === "GET" && url.pathname === "/v2/admin/games") {
     const adminListDenied = await requireAdmin(request, env, origin);
     if (adminListDenied) return adminListDenied;
