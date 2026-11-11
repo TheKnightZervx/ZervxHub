@@ -292,7 +292,7 @@ function createApi() {
     });
     return worker.fetch(req, env);
   }
-  return { DB, request };
+  return { DB, request, env };
 }
 
 async function json(response) { return response.json(); }
@@ -594,6 +594,16 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   assert.equal((await json(afterSuspend)).reason, "developer_suspended");
   const issueAfter = await issueForDeveloper(api, developer.apiKey, "555555555555555", "12345");
   assert.equal(issueAfter.response.status, 401);
+});
+
+testCase("Discord bot credential must be configured separately from the admin token", async () => {
+  const api = createApi();
+  api.env.BOT_API_TOKEN = ADMIN_TOKEN;
+  const response = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 },
+    headers: { "x-bot-token": ADMIN_TOKEN },
+  });
+  assert.equal(response.status, 401);
 });
 
 testCase("admin routes reject missing and wrong credentials", async () => {
