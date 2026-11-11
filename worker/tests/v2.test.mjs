@@ -454,6 +454,15 @@ testCase("developer integration and Discord bot operations stay bound to one gui
   assert.deepEqual(await json(revoke), { revoked: true });
 });
 
+testCase("oversized V2 request bodies are rejected while streaming", async () => {
+  const api = createApi();
+  const response = await api.request("/v2/games/register", {
+    body: { universeId: "12345", name: "x".repeat(17_000) },
+  });
+  assert.equal(response.status, 413);
+  assert.deepEqual(await json(response), { error: "Request too large" });
+});
+
 testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approval/isolation", async () => {
   const api = createApi();
   for (const body of ["null", "[]", "1", "\"text\""]) {
