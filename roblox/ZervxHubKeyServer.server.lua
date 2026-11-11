@@ -23,6 +23,9 @@ if not remote then
 end
 
 local function verify(player, submittedKey)
+    -- Clear any previous authorization before every fresh verification attempt.
+    player:SetAttribute("ZervxHubAuthorized", false)
+
     if typeof(submittedKey) ~= "string" then
         return false, "Enter a valid key."
     end
