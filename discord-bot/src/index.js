@@ -10,11 +10,11 @@ import { filterGameChoices, guildIdsFromEnv, issueReply, revokeReply } from "./l
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const apiUrl = process.env.ZERVXHUB_API_URL?.replace(/\/$/, "");
-const botApiToken = process.env.ZERVXHUB_BOT_TOKEN || process.env.ZERVXHUB_ADMIN_TOKEN;
+const botApiToken = process.env.ZERVXHUB_BOT_TOKEN;
 const guildIds = guildIdsFromEnv(process.env.DISCORD_GUILD_ID, process.env.DISCORD_GUILD_IDS);
 
 if (!token || !clientId || !apiUrl || !botApiToken) {
-  throw new Error("Missing required environment variables. Copy .env.example and fill in the private values.");
+  throw new Error("Missing required environment variables. Set DISCORD_TOKEN, DISCORD_CLIENT_ID, ZERVXHUB_API_URL, and the dedicated ZERVXHUB_BOT_TOKEN.");
 }
 
 const parsedApiUrl = new URL(apiUrl);
@@ -139,7 +139,7 @@ client.on("interactionCreate", async interaction => {
       });
       await interaction.editReply(revokeReply(response.status, data, member.id));
     } catch {
-      await interaction.editReply("Could not reach the key service.");
+      await interaction.editReply("Could not revoke a key right now.");
     }
   }
 });
