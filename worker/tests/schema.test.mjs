@@ -79,3 +79,34 @@ test("migrations create isolated developer, game, and license tables", async () 
   });
   db.close();
 });
+
+test("consolidated schema.sql matches the final migration table and index set", async () => {
+  const db = new DatabaseSync(":memory:");
+  const snapshot = new URL("../schema.sql", import.meta.url);
+  db.exec(await readFile(fileURLToPath(snapshot), "utf8"));
+
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+  ).all().map((row) => row.name);
+  assert.deepEqual(tables, [
+    "developer_api_keys",
+    "developers",
+    "discord_integrations",
+    "games",
+    "keys",
+  ]);
+
+  const columns = db.prepare("PRAGMA table_info(keys)").all().map((row) => row.name);
+  assert.ok(columns.includes("developer_id"));
+
+  const indexes = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'"
+  ).all().map((row) => row.name);
+  for (const name of [
+    "idx_keys_developer_discord_created",
+    "idx_games_developer",
+    "idx_discord_integrations_developer",
+  ]) assert.ok(indexes.includes(name), `Missing index: ${name}`);
+
+  db.close();
+});
