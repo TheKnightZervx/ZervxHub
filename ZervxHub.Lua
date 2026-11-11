@@ -1,16 +1,15 @@
--- [[ ZERVXHUB - ADVANCED TEKKIT HUB PERSISTENT EDITION ]] --
+-- [[ ZERVXHUB - PREMIUM TEKKIT EDITION FIXED & CLOSED ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
 
 -- منع التكرار لضمان ثبات الأداء
 if _G.ZervxHubLoaded then return end
 _G.ZervxHubLoaded = true
-
-local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local UserInputService = game:GetService("UserInputService")
 
 -- المحافظة على الإعدادات العامة للسكربت
 if not getgenv().ZervxHub then
@@ -45,7 +44,7 @@ MainFrame.Position = UDim2.new(0.3, 0, 0.25, 0)
 MainFrame.Size = UDim2.new(0, 340, 0, 260)
 MainFrame.Active = true
 
--- نظام السحب اللمسي المطور للشاشات
+-- نظام السحب اللمسي المتطور للشاشات
 local dragging, dragInput, dragStart, startPos
 local function updateDrag(input)
     local delta = input.Position - dragStart
@@ -198,7 +197,6 @@ task.spawn(function()
                     return
                 end
                 
-                -- [تعديل الفحص] البحث الشامل عن المجلدات القتالية لضمان بدء التثبيت الفوري في الجيم
                 local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
                 if Titans then
                     for _, titan in pairs(Titans:GetChildren()) do
@@ -237,7 +235,8 @@ task.spawn(function()
     end
 end)
 
--- 5. [نظام الـ Auto-Execute المدمج] حظر السقوط عند التنقل بين خوادم المباراة
+-- 5. نظام الـ Auto-Execute المستقر المتوافق مع Delta Mobile للتنقل بين السيرفرات
 local queue_on_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
 if queue_on_teleport then
     LocalPlayer.OnTeleport:Connect(function(State)
+        if State == Enum.TeleportState.Started then
