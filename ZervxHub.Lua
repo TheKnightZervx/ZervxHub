@@ -103,7 +103,7 @@ local function InitializeZervxEngine()
         end
     end)
 
-    -- Resource Allocation Daemon Loop (Infinite Gas & Utilites)
+    -- Resource Allocation Daemon Loop (Infinite Gas & Utilities)
     task.spawn(function()
         while true do
             task.wait(0.4)
@@ -134,7 +134,7 @@ local function InitializeZervxEngine()
     local BaseFrame = Instance.new("Frame")
     BaseFrame.Name = "BaseFrame"
     BaseFrame.Parent = MainGui
-    BaseFrame.BackgroundColor3 = Color3.fromRGB(8, 14, 24) -- Re-Themed to Match Ocean Blue Key Window
+    BaseFrame.BackgroundColor3 = Color3.fromRGB(8, 14, 24)
     BaseFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
     BaseFrame.Size = UDim2.new(0, 190, 0, 240)
     BaseFrame.Active = true
@@ -146,7 +146,7 @@ local function InitializeZervxEngine()
 
     local FrameStroke = Instance.new("UIStroke")
     FrameStroke.Thickness = 1.5
-    FrameStroke.Color = Color3.fromRGB(0, 210, 255) -- Aqua Blue Outline Accent
+    FrameStroke.Color = Color3.fromRGB(0, 210, 255)
     FrameStroke.Parent = BaseFrame
 
     local Title = Instance.new("TextLabel")
@@ -221,3 +221,4 @@ local function InitializeZervxEngine()
 
     AddToggle("AUTOMATED FARM", 0, "AutoFarm")
     AddToggle("ANTI-CHEAT MODE", 1, "SafeMode")
+    AddToggle("INFINITE UTILITY", 2, "InfiniteGas")
