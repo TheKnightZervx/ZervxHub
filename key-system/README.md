@@ -36,7 +36,7 @@ Register a global slash command named `getkey` (type 1, no options) for the appl
 
 ## Roblox integration
 
-Call `POST /v1/keys/verify` from a Script in ServerScriptService only. Send JSON `{ "key": "...", "robloxUserId": "123456" }` and the server-only header `Authorization: Bearer YOUR_ROBLOX_SERVER_TOKEN`. Never call this endpoint from a LocalScript or expose the bearer token to clients. The provided Roblox adapter is a starting point; put the token only in a server Script in an experience you control.
+Call `POST /v1/keys/verify` from a Script in ServerScriptService only. Send JSON `{ "key": "...", "robloxUserId": "123456" }` and the server-only header `Authorization: Bearer YOUR_ROBLOX_SERVER_TOKEN`. Never call this endpoint from a LocalScript or expose the bearer token to clients. The provided Roblox server Script and client ModuleScript are starting points; put the token only in a server Script in an experience you control.
 
 ## Routes
 
