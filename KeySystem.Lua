@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - INSTANT RUN OCEAN LOBBY GATEWAY ]] --
+-- [[ ZERVXHUB - ANTI-DUPLICATION OCEAN KEY SYSTEM ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui") or TargetGuiContainer
 local TweenService = game:GetService("TweenService")
 
--- 🧹 DESTRUCTIVE SANITIZATION SWEEP
+-- 🧹 DESTRUCTIVE CLEANUP: FORCE-DELETE ALL PREVIOUS COPIES FROM PLAYERGUI & COREGUI
 local systemName = "ZervxHub_KeySystem"
 for _, container in pairs({TargetGuiContainer, CoreGui}) do
     for _, child in pairs(container:GetChildren()) do
@@ -17,9 +17,10 @@ for _, container in pairs({TargetGuiContainer, CoreGui}) do
     end
 end
 
--- 🔑 Secure Shared Access Identity Token
+-- 🔑 Secret Key
 local MySecretKey = "KEYAUTH-R1zzYl-P5bPy4-BUPD7t-fyXtpy-V8BwKp-BSL7t4" 
 
+-- Premium ScreenGui Setup
 local KeyGui = Instance.new("ScreenGui")
 KeyGui.Name = systemName
 KeyGui.Parent = TargetGuiContainer
@@ -27,6 +28,7 @@ KeyGui.ResetOnSpawn = false
 KeyGui.DisplayOrder = 999999
 KeyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+-- Main Premium Glow Shadow Frame (Deep Sea Abyss Shadow)
 local ShadowFrame = Instance.new("Frame")
 ShadowFrame.Name = "ShadowFrame"
 ShadowFrame.Parent = KeyGui
@@ -40,20 +42,23 @@ local ShadowCorner = Instance.new("UICorner")
 ShadowCorner.CornerRadius = UDim.new(0, 20)
 ShadowCorner.Parent = ShadowFrame
 
+-- Main Frame (Fancy Rounded Ocean Curved Design)
 local KeyFrame = Instance.new("Frame")
 KeyFrame.Name = "KeyFrame"
 KeyFrame.Parent = KeyGui
-KeyFrame.BackgroundColor3 = Color3.fromRGB(8, 14, 24)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(8, 14, 24) -- Deep Matte Oceanic Blue
 KeyFrame.Position = UDim2.new(0.5, -160, 0.5, -100)
 KeyFrame.Size = UDim2.new(0, 320, 0, 200)
 KeyFrame.Active = true
 KeyFrame.ZIndex = 10
 KeyFrame.BorderSizePixel = 0
 
+-- Premium Curved Edge Styling
 local FrameCorner = Instance.new("UICorner")
 FrameCorner.CornerRadius = UDim.new(0, 18)
 FrameCorner.Parent = KeyFrame
 
+-- Bioluminescent Aqua Border Glow Accent
 local BorderGlow = Instance.new("UIStroke")
 BorderGlow.Thickness = 2.5
 BorderGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -61,13 +66,13 @@ BorderGlow.Parent = KeyFrame
 
 local BorderGradient = Instance.new("UIGradient")
 BorderGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 210, 255)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 90, 220)),
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 210, 255)),  -- Glowing Cyan Reef
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 90, 220)), -- Royal Marine Blue
     ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 210, 255))
 }
 BorderGradient.Parent = BorderGlow
 
--- High-Response Mobile Input Position Dragging Wrappers
+-- Smooth Mobile and PC Dragging Handler
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 local function updateDrag(input)
@@ -94,6 +99,7 @@ UserInputService.InputChanged:Connect(function(input)
     if input == dragInput and dragging then updateDrag(input) end
 end)
 
+-- Transparent Top Banner Header Line Separator
 local HeaderLine = Instance.new("Frame")
 HeaderLine.Name = "HeaderLine"
 HeaderLine.Parent = KeyFrame
@@ -111,6 +117,7 @@ LineGradient.Color = ColorSequence.new{
 }
 LineGradient.Parent = HeaderLine
 
+-- Elegant Floating Title Text
 local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = KeyFrame
@@ -118,11 +125,12 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 0, 0, 10)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "⚓ ZERVXHUB | OCEAN GATEWAY"
+Title.Text = "🌊 ZERVXHUB | OCEAN GATEWAY"
 Title.TextColor3 = Color3.fromRGB(245, 250, 255)
 Title.TextSize = 13
 Title.ZIndex = 11
 
+-- Sleek Rounded Trench Input Box
 local TextBox = Instance.new("TextBox")
 TextBox.Name = "TextBox"
 TextBox.Parent = KeyFrame
@@ -146,6 +154,7 @@ TextStroke.Thickness = 1
 TextStroke.Color = Color3.fromRGB(15, 35, 55)
 TextStroke.Parent = TextBox
 
+-- Interactive Aqua Marine Button
 local CheckButton = Instance.new("TextButton")
 CheckButton.Name = "CheckButton"
 CheckButton.Parent = KeyFrame
@@ -169,6 +178,7 @@ ButtonGradient.Color = ColorSequence.new{
 }
 ButtonGradient.Parent = CheckButton
 
+-- Script Key Verification Logic Flow
 CheckButton.MouseButton1Click:Connect(function()
     local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1")
     
@@ -192,20 +202,14 @@ CheckButton.MouseButton1Click:Connect(function()
         CheckButton.BackgroundColor3 = Color3.fromRGB(30, 165, 100)
         task.wait(1)
         
+        -- Structural Shrink Transition
         TweenService:Create(KeyFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
         TweenService:Create(ShadowFrame, TweenInfo.new(0.3, Enum.EasingStyle.Back, Enum.EasingDirection.In), {Size = UDim2.new(0, 0, 0, 0), BackgroundTransparency = 1}):Play()
         task.wait(0.3)
         KeyGui:Destroy()
         
-        -- [INSTANT FORWARD]: Immediately downloads the main script sandbox without getting stuck waiting here
-        task.spawn(function()
-            local success, err = pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
-            end)
-            if not success then
-                warn("[-] Error starting Main Hub Execution: " .. tostring(err))
-            end
-        end)
+        -- 🔗 EXACT REQUESTED LOADSTRING LINK TARGET
+        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
     else
         CheckButton.Text = "⚠️ CORRUPTED WAVE SEQUENCE"
         CheckButton.BackgroundColor3 = Color3.fromRGB(210, 40, 40)
