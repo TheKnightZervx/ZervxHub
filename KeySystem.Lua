@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - ISOLATED OCEAN GATEWAY LAYER ]] --
+-- [[ ZERVXHUB - ISOLATED RADIAL OCEAN LOBBY GATEWAY ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui") or TargetGuiContainer
 local TweenService = game:GetService("TweenService")
 
--- 🧹 DESTRUCTIVE CLEANUP: FORCE PURGE PREVIOUS ELEMENTS CORES
+-- 🧹 DESTRUCTIVE SANITIZATION SWEEP: DELETES ALL TRACE SCRIPT OVERLAPS
 local systemName = "ZervxHub_KeySystem"
 for _, container in pairs({TargetGuiContainer, CoreGui}) do
     for _, child in pairs(container:GetChildren()) do
@@ -17,7 +17,7 @@ for _, container in pairs({TargetGuiContainer, CoreGui}) do
     end
 end
 
--- 🔑 Secure Static Access Token Verification Sequence
+-- 🔑 Secure Shared Access Identity Token
 local MySecretKey = "KEYAUTH-R1zzYl-P5bPy4-BUPD7t-fyXtpy-V8BwKp-BSL7t4" 
 
 local KeyGui = Instance.new("ScreenGui")
@@ -67,7 +67,7 @@ BorderGradient.Color = ColorSequence.new{
 }
 BorderGradient.Parent = BorderGlow
 
--- Responsive Mobile Dragging Handler
+-- High-Response Mobile Input Position Dragging Wrappers
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 local function updateDrag(input)
@@ -197,13 +197,21 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(0.3)
         KeyGui:Destroy()
         
-        -- Safe sandboxed thread generation to fetch main runtime execution panel securely
+        -- [COPIED FROM ADVANCED INITIALIZERS]: Persistent, isolated sandboxed listener thread 
         task.spawn(function()
-            local success, err = pcall(function()
-                loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
-            end)
-            if not success then
-                warn("[-] isolated Core Error: Main Script has crashed independently. KeySystem remains fine. Trace: " .. tostring(err))
+            while true do
+                -- Continually scans workspace to see if user left character screen and loaded onto a match map
+                local validMap = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
+                if validMap and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
+                    local success, err = pcall(function()
+                        loadstring(game:HttpGet("https://githubusercontent.com"))()
+                    end)
+                    if not success then
+                        warn("[-] Isolated Runtime Error on Main Target Allocation: " .. tostring(err))
+                    end
+                    break -- Interface loaded onto active target arena; break background thread
+                end
+                task.wait(1) -- Low overhead poll cycle
             end
         end)
     else
