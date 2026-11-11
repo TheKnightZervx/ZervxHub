@@ -366,17 +366,32 @@ local function BuildZervxInterface()
 if input.UserInputState == Enum.UserInputState.End then iconDragging = false end
 end)
 end
-end)
-IconButton.InputChanged:Connect(function(input)
-if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
-if iconDragging then
-local delta = input.Position - iconDragStart
-IconButton.Position = UDim2.new(iconStartPos.X.Scale, iconStartPos.X.Offset + delta.X, iconStartPos.Y.Scale, iconStartPos.Y.Offset + delta.Y)
+end)    -- Dragging Logic for the Floating Icon (FIXED CLOSING SYNTAX)
+    local iconDragging, iconDragStart, iconStartPos
+    IconButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            iconDragging = true
+            iconDragStart = input.Position
+            iconStartPos = IconButton.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then iconDragging = false end
+            end)
+        end
+    end)
+    
+    IconButton.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+            if iconDragging then
+                local delta = input.Position - iconDragStart
+                IconButton.Position = UDim2.new(iconStartPos.X.Scale, iconStartPos.X.Offset + delta.X, iconStartPos.Y.Scale, iconStartPos.Y.Offset + delta.Y)
+            end
+        end
+    end)
+    
+    IconButton.MouseButton1Click:Connect(function()
+        MainGui.Enabled = not MainGui.Enabled
+    end)
 end
-end
-end)
-IconButton.MouseButton1Click:Connect(function()
-MainGui.Enabled = not MainGui.Enabled
-end)
-end
+
 task.spawn(BuildZervxInterface)
+
