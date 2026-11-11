@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - FORCE REFRESH MODERN KEY SYSTEM ]] --
+-- [[ ZERVXHUB - FORCE REFRESH OCEAN KEY SYSTEM ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -6,7 +6,7 @@ local LocalPlayer = Players.LocalPlayer
 local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 local TweenService = game:GetService("TweenService")
 
--- 🧹 FORCE DELETE THE OLD BOXY SYSTEM IF IT EXISTS
+-- 🧹 FORCE DELETE THE OLD SYSTEM IF IT EXISTS
 if TargetGuiContainer:FindFirstChild("ZervxHub_KeySystem") then
     TargetGuiContainer:FindFirstChild("ZervxHub_KeySystem"):Destroy()
 end
@@ -22,11 +22,11 @@ KeyGui.ResetOnSpawn = false
 KeyGui.DisplayOrder = 999999
 KeyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Main Premium Glow Shadow Frame
+-- Main Premium Glow Shadow Frame (Deep Sea Abyss Shadow)
 local ShadowFrame = Instance.new("Frame")
 ShadowFrame.Name = "ShadowFrame"
 ShadowFrame.Parent = KeyGui
-ShadowFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+ShadowFrame.BackgroundColor3 = Color3.fromRGB(0, 10, 20)
 ShadowFrame.BackgroundTransparency = 0.5
 ShadowFrame.Position = UDim2.new(0.5, -165, 0.5, -105)
 ShadowFrame.Size = UDim2.new(0, 330, 0, 210)
@@ -36,11 +36,11 @@ local ShadowCorner = Instance.new("UICorner")
 ShadowCorner.CornerRadius = UDim.new(0, 20)
 ShadowCorner.Parent = ShadowFrame
 
--- Main Frame (Fancy Rounded Curved Design)
+-- Main Frame (Fancy Rounded Ocean Curved Design)
 local KeyFrame = Instance.new("Frame")
 KeyFrame.Name = "KeyFrame"
 KeyFrame.Parent = KeyGui
-KeyFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 18) -- Deep Dark Charcoal Matte
+KeyFrame.BackgroundColor3 = Color3.fromRGB(8, 14, 24) -- Deep Matte Oceanic Blue
 KeyFrame.Position = UDim2.new(0.5, -160, 0.5, -100)
 KeyFrame.Size = UDim2.new(0, 320, 0, 200)
 KeyFrame.Active = true
@@ -49,10 +49,10 @@ KeyFrame.BorderSizePixel = 0
 
 -- Premium Curved Edge Styling
 local FrameCorner = Instance.new("UICorner")
-FrameCorner.CornerRadius = UDim.new(0, 18) -- Heavy curves to instantly remove boxy shape
+FrameCorner.CornerRadius = UDim.new(0, 18)
 FrameCorner.Parent = KeyFrame
 
--- Neon Border Glow Accent
+-- Bioluminescent Aqua Border Glow Accent
 local BorderGlow = Instance.new("UIStroke")
 BorderGlow.Thickness = 2.5
 BorderGlow.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
@@ -60,9 +60,9 @@ BorderGlow.Parent = KeyFrame
 
 local BorderGradient = Instance.new("UIGradient")
 BorderGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 0)), -- Electric Orange
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 30, 70)), -- Neon Pink/Red
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 120, 0))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 210, 255)),  -- Glowing Cyan Reef
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 90, 220)), -- Royal Marine Blue
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 210, 255))
 }
 BorderGradient.Parent = BorderGlow
 
@@ -105,9 +105,9 @@ HeaderLine.ZIndex = 11
 
 local LineGradient = Instance.new("UIGradient")
 LineGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 30, 70)),
-    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(255, 120, 0)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 30, 70))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 90, 220)),
+    ColorSequenceKeypoint.new(0.5, Color3.fromRGB(0, 210, 255)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 90, 220))
 }
 LineGradient.Parent = HeaderLine
 
@@ -119,21 +119,21 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 0, 0, 10)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "✨ ZERVXHUB SYSTEM"
-Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Text = "🌊 ZERVXHUB | OCEAN GATEWAY"
+Title.TextColor3 = Color3.fromRGB(245, 250, 255)
 Title.TextSize = 13
 Title.ZIndex = 11
 
--- Sleek Rounded Input Box
+-- Sleek Rounded Trench Input Box
 local TextBox = Instance.new("TextBox")
 TextBox.Name = "TextBox"
 TextBox.Parent = KeyFrame
-TextBox.BackgroundColor3 = Color3.fromRGB(22, 22, 26)
+TextBox.BackgroundColor3 = Color3.fromRGB(5, 9, 16)
 TextBox.Position = UDim2.new(0.08, 0, 0.36, 0)
 TextBox.Size = UDim2.new(0.84, 0, 0, 40)
 TextBox.Font = Enum.Font.Gotham
-TextBox.PlaceholderText = "Paste access key sequence..."
-TextBox.PlaceholderColor3 = Color3.fromRGB(120, 120, 135)
+TextBox.PlaceholderText = "Submerge access token here..."
+TextBox.PlaceholderColor3 = Color3.fromRGB(70, 95, 120)
 TextBox.Text = ""
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
 TextBox.TextSize = 11
@@ -145,18 +145,18 @@ TextCorner.Parent = TextBox
 
 local TextStroke = Instance.new("UIStroke")
 TextStroke.Thickness = 1
-TextStroke.Color = Color3.fromRGB(40, 40, 50)
+TextStroke.Color = Color3.fromRGB(15, 35, 55)
 TextStroke.Parent = TextBox
 
--- Interactive Neon Button
+-- Interactive Aqua Marine Button
 local CheckButton = Instance.new("TextButton")
 CheckButton.Name = "CheckButton"
 CheckButton.Parent = KeyFrame
-CheckButton.BackgroundColor3 = Color3.fromRGB(255, 110, 0)
+CheckButton.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
 CheckButton.Position = UDim2.new(0.08, 0, 0.65, 0)
 CheckButton.Size = UDim2.new(0.84, 0, 0, 42)
 CheckButton.Font = Enum.Font.GothamBold
-CheckButton.Text = "VERIFY GATEWAY"
+CheckButton.Text = "VERIFY MARINE KEY"
 CheckButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 CheckButton.TextSize = 12
 CheckButton.ZIndex = 11
@@ -167,8 +167,8 @@ ButtonCorner.Parent = CheckButton
 
 local ButtonGradient = Instance.new("UIGradient")
 ButtonGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(255, 120, 0)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(255, 40, 70))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(0, 170, 245)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 85, 210))
 }
 ButtonGradient.Parent = CheckButton
 
@@ -177,23 +177,23 @@ CheckButton.MouseButton1Click:Connect(function()
     local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1")
     
     if enteredKey == "" then
-        CheckButton.Text = "⚠️ FIELD IS EMPTY"
+        CheckButton.Text = "❌ EMPTY DEPTHS: KEY REQUIRED"
         ButtonGradient.Enabled = false
-        CheckButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        CheckButton.BackgroundColor3 = Color3.fromRGB(210, 40, 40)
         task.wait(1.5)
-        CheckButton.Text = "VERIFY GATEWAY"
+        CheckButton.Text = "VERIFY MARINE KEY"
         ButtonGradient.Enabled = true
         return
     end
 
-    CheckButton.Text = "🔄 VERIFYING SIGNATURE..."
+    CheckButton.Text = "🌊 SCANNING CURRENTS..."
     ButtonGradient.Enabled = false
-    CheckButton.BackgroundColor3 = Color3.fromRGB(180, 100, 0)
+    CheckButton.BackgroundColor3 = Color3.fromRGB(0, 135, 155)
     task.wait(0.6)
 
     if enteredKey == MySecretKey then
-        CheckButton.Text = "✔️ GRANTED! CLEARING INTEGRATION..."
-        CheckButton.BackgroundColor3 = Color3.fromRGB(40, 190, 90)
+        CheckButton.Text = "⚓ ANCHOR DROP • ACCESS GRANTED"
+        CheckButton.BackgroundColor3 = Color3.fromRGB(30, 165, 100)
         task.wait(1)
         
         -- Structural Shrink Transition
@@ -204,10 +204,10 @@ CheckButton.MouseButton1Click:Connect(function()
         
         loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
     else
-        CheckButton.Text = "❌ ACCESS DENIED! INVALID"
-        CheckButton.BackgroundColor3 = Color3.fromRGB(220, 50, 50)
+        CheckButton.Text = "⚠️ CORRUPTED WAVE SEQUENCE"
+        CheckButton.BackgroundColor3 = Color3.fromRGB(210, 40, 40)
         task.wait(2)
-        CheckButton.Text = "VERIFY GATEWAY"
+        CheckButton.Text = "VERIFY MARINE KEY"
         ButtonGradient.Enabled = true
     end
 end)
