@@ -1,0 +1,19 @@
+{
+  "name": "zervxhub-key-api",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "typecheck": "tsc --noEmit",
+    "deploy": "wrangler deploy",
+    "db:create": "wrangler d1 create zervxhub-keys",
+    "db:migrate:local": "wrangler d1 execute zervxhub-keys --local --file=./schema.sql",
+    "db:migrate:remote": "wrangler d1 execute zervxhub-keys --remote --file=./schema.sql"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20261111.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^4.45.0"
+  }
+}
