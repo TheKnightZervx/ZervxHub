@@ -71,7 +71,7 @@ export default {
       const key = typeof body.key === "string" ? body.key.trim().toUpperCase() : "";
       const universeId = typeof body.universeId === "string" ? body.universeId.trim() : "";
       const robloxUserId = typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
-      if (key.length < 20 || key.length > 100 || !/^\\d+$/.test(universeId)) {
+      if (key.length < 20 || key.length > 100 || !/^[0-9]+$/.test(universeId)) {
         return json({ valid: false, reason: "invalid_request" }, 400, origin);
       }
 
@@ -107,10 +107,10 @@ export default {
     if (url.pathname === "/v1/keys/issue") {
       const discordUserId = typeof body.discordUserId === "string" ? body.discordUserId.trim() : "";
       const allowed = Array.isArray(body.allowedUniverseIds)
-        ? body.allowedUniverseIds.filter((v): v is string => typeof v === "string" && /^\\d+$/.test(v))
+        ? body.allowedUniverseIds.filter((v): v is string => typeof v === "string" && /^[0-9]+$/.test(v))
         : [];
       const universeIds = allowed.length ? allowed : parseIds(env.ALLOWED_UNIVERSE_IDS ?? "");
-      if (!/^\\d{15,22}$/.test(discordUserId)) return json({ error: "Invalid Discord user ID" }, 400, origin);
+      if (!/^[0-9]{15,22}$/.test(discordUserId)) return json({ error: "Invalid Discord user ID" }, 400, origin);
       if (!universeIds.length) return json({ error: "No Roblox Universe IDs are configured; issuance is disabled" }, 409, origin);
 
       const now = Math.floor(Date.now() / 1000);
