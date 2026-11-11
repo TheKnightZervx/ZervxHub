@@ -25,7 +25,7 @@ Never publish the admin token, bot token, or key pepper. Store them in a passwor
 
 The V2 bot is tenant-scoped. Before the bot can issue keys, an administrator must create a developer and connect the Discord guild to that developer.
 
-1. Use `POST /v2/admin/developers` with the `x-admin-token` header and JSON containing the developer's Discord user ID and display name. Save the returned developer ID and API key securely; the API key is shown only once.
+1. Use `POST /v2/admin/developers` with the `x-admin-token` header and JSON containing the developer's Discord user ID and display name. Save the returned developer ID and API key securely; the API key is shown only once. Administrators can retrieve the latest 100 developer records with `GET /v2/admin/developers`.
 2. Use `POST /v2/admin/discord-integrations` with the `x-admin-token` header and JSON containing the Discord guild ID and developer ID.
 3. Review/approve the developer's registered Roblox Universe IDs through `POST /v2/admin/games/review` after the developer registers them with `POST /v2/games/register`.
 
