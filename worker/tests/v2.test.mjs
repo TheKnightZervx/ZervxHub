@@ -134,8 +134,18 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE developer_api_keys SET revoked_at")) {
-          const [revokedAt, hash1, hash2] = args;
-          const key = db.apiKeys.get(hash1) || (hash2 && db.apiKeys.get(hash2));
+          const [revokedAt, selector, hash2] = args;
+          if (normalized.includes("WHERE developer_id = ?")) {
+            let changes = 0;
+            for (const key of db.apiKeys.values()) {
+              if (key.developerId === selector && !key.revokedAt) {
+                key.revokedAt = revokedAt;
+                changes++;
+              }
+            }
+            return { meta: { changes } };
+          }
+          const key = db.apiKeys.get(selector) || (hash2 && db.apiKeys.get(hash2));
           if (!key || key.revokedAt) return { meta: { changes: 0 } };
           key.revokedAt = revokedAt;
           return { meta: { changes: 1 } };
@@ -351,6 +361,32 @@ testCase("admin creates developers; developer API keys are hashed and admin rout
   assert.deepEqual(await json(revoked), { revoked: true });
   const afterRevoke = await api.request("/v2/games", { method: "GET", headers: devHeaders(created.apiKey) });
   assert.equal(afterRevoke.status, 401);
+});
+
+testCase("admin can rotate a developer API key and the previous key stops working", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Rotate Me");
+  const rotated = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(rotated.status, 201);
+  const result = await json(rotated);
+  assert.match(result.apiKey, /^zvh_live_[a-f0-9]{64}$/);
+  assert.notEqual(result.apiKey, developer.apiKey);
+  assert.equal(api.DB.apiKeys.has(result.apiKey), false);
+
+  const oldCredential = await api.request("/v2/games", {
+    method: "GET",
+    headers: devHeaders(developer.apiKey),
+  });
+  assert.equal(oldCredential.status, 401);
+
+  const newCredential = await api.request("/v2/games", {
+    method: "GET",
+    headers: devHeaders(result.apiKey),
+  });
+  assert.equal(newCredential.status, 200);
 });
 
 testCase("game approval and developer game listing are scoped to the authenticated developer", async () => {
