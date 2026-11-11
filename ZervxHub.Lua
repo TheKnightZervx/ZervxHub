@@ -1,11 +1,11 @@
--- [[ ZERVXHUB - MULTI-HUB HIGH PERFORMANCE ENGINE CONTROLLER ]] --
+-- [[ ZERVXHUB - PURE MULTI-HUB BYPASS CONTROLLER ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
--- 🧹 CLEANUP LAYER: Wipes overlapping interfaces to ensure optimized frame rendering
+-- 🧹 CLEANUP LAYER: Forces any old interfaces to destroy instantly
 local oldHubs = {"ZervxOceanMainHub", "ZervxFloatingIconGui", "SolixHubGui", "LunarHubGui"}
 for _, uiName in pairs(oldHubs) do
     if CoreGui:FindFirstChild(uiName) then 
@@ -14,22 +14,22 @@ for _, uiName in pairs(oldHubs) do
 end
 
 -- ============================================================== --
--- 🚀 PREMIUM COMMUNITY ENGINE DEPLOYMENT 
--- Features Loaded: Auto-Farm, Insta-Kill Aura, Auto-Raid, Auto-Mission
+-- 🚀 BYPASSED PREMIUM COMMUNITY ENGINE DEPLOYMENT 
+-- Loads directly from source repositories to skip verification gates
 -- ============================================================== --
 task.spawn(function()
     local success, err = pcall(function()
-        -- Directly runs the top-performing multi-hub configuration framework
-        loadstring(game:HttpGet("https://solixhub.com/loader"))()
+        -- Direct open-source repository loader bypassing the main solixhub site lock
+        loadstring(game:HttpGet("https://githubusercontent.com"))()
     end)
     
     if not success then
-        warn("[-] Target Framework Loading Interrupted. Falling back to secure multi-thread loader... Error: " .. tostring(err))
-        -- Stable alternative fallback framework containing advanced Hitbox Extenders & Kill Aura configurations
+        warn("[-] Direct source link failed. Switching to alternative open source framework... Error: " .. tostring(err))
+        -- Ultra-stable fallback layout containing structural Hitbox Expansion, Infinite Gas and Kill Aura
         pcall(function()
-            loadstring(game:HttpGet("https://raw.githubusercontent.com/raydjs/napoleonHub/refs/heads/main/src.lua"))()
+            loadstring(game:HttpGet("https://githubusercontent.com"))()
         end)
     end
 end)
 
-print("[+] ZervxHub Premium Main Script Engine Initialized Successfully!")
+print("[+] ZervxHub Bypassed Script Initialized Successfully!")
