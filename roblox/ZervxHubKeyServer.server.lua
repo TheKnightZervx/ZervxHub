@@ -53,7 +53,7 @@ local function verify(player, submittedKey)
 
     local ok, response = pcall(function()
         return HttpService:RequestAsync({
-            Url = API_BASE .. "/v1/keys/validate",
+            Url = API_BASE .. "/v2/keys/validate",
             Method = "POST",
             Headers = {["Content-Type"] = "application/json"},
             Body = HttpService:JSONEncode({
@@ -85,9 +85,12 @@ local function verify(player, submittedKey)
     player:SetAttribute("ZervxHubAuthorized", false)
     local reasons = {
         invalid_or_revoked = "Key is invalid or revoked.",
+        invalid_or_expired = "Key is invalid or expired.",
         expired = "Key has expired.",
         game_not_allowed = "This game is not authorized for ZervxHub.",
+        developer_suspended = "ZervxHub access for this game is paused.",
         invalid_request = "Key request is invalid.",
+        rate_limited = "Too many attempts. Wait a minute.",
     }
     return false, reasons[data.reason] or "Key verification failed."
 end

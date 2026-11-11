@@ -3,3 +3,7 @@ node_modules/
 .dev.vars
 .wrangler/
 .DS_Store
+*.backup
+worker/test-developer-api-key.txt
+worker/test-developer-2-api-key.txt
+worker/isolation-test-license.txt

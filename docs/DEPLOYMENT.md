@@ -6,12 +6,15 @@
 2. Create a D1 database: `npx wrangler d1 create zervxhub-db`.
 3. Put the returned database ID in `worker/wrangler.toml`.
 4. Apply the schema: `npm run db:remote`.
-5. Set a strong secret: `npx wrangler secret put ADMIN_TOKEN`.
+5. Set strong secrets using Wrangler:
+   - `npx wrangler secret put ADMIN_TOKEN` (Worker administrative operations)
+   - `npx wrangler secret put KEY_PEPPER` (High-entropy secret for HMAC-SHA-256 key hashing)
+   - `npx wrangler secret put BOT_API_TOKEN` (Private service credential for the Discord bot)
 6. Add your real comma-separated Roblox Universe IDs to `ALLOWED_UNIVERSE_IDS` in the Worker's Variables settings. Do not leave it empty; validation and issuance intentionally fail closed.
 7. Deploy: `npm run deploy`.
 8. Check `GET /v1/health` on the deployed Worker URL.
 
-Never publish the admin token. Store it in a password manager. Do not put it in Roblox scripts or a public repository.
+Never publish the admin token, bot token, or key pepper. Store them in a password manager. Do not put them in Roblox scripts, client bundles, or a public repository.
 
 ## Discord bot on Railway
 
@@ -19,7 +22,7 @@ Never publish the admin token. Store it in a password manager. Do not put it in 
 2. Invite it using the `bot` and `applications.commands` scopes.
 3. Create a Railway service from the `discord-bot/` directory.
 4. Set all variables from `.env.example` in Railway Variables.
-5. Set `ZERVXHUB_API_URL` to the deployed Worker URL and `ZERVXHUB_ADMIN_TOKEN` to the same secret used by the Worker.
+5. Set `ZERVXHUB_API_URL` to the deployed Worker URL and `ZERVXHUB_BOT_TOKEN` to the same secret used by the Worker for `BOT_API_TOKEN`.
 6. Deploy with `npm start`. Guild slash commands register at startup.
 
 The bot needs Manage Server permission for `/revoke-key`. Keep both tokens private.

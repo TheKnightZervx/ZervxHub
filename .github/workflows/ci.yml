@@ -8,28 +8,41 @@ on:
 
 jobs:
   worker:
-    name: Cloudflare Worker typecheck
+    name: Cloudflare Worker CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: worker/package-lock.json
       - name: Install dependencies
         working-directory: worker
-        run: npm install
+        run: npm ci
       - name: Typecheck
         working-directory: worker
         run: npm run typecheck
+      - name: Run tests
+        working-directory: worker
+        run: npm test
 
   discord-bot:
-    name: Discord bot syntax check
+    name: Discord Bot CI
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 20
+          cache: npm
+          cache-dependency-path: discord-bot/package-lock.json
+      - name: Install dependencies
+        working-directory: discord-bot
+        run: npm ci
       - name: Check JavaScript syntax
         working-directory: discord-bot
         run: node --check src/index.js
+      - name: Run tests
+        working-directory: discord-bot
+        run: npm test

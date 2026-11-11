@@ -1,5 +1,6 @@
 -- ZervxHub key prompt for an experience you own.
 -- Install as a LocalScript in StarterPlayer > StarterPlayerScripts.
+-- This UI only collects the key. The server script decides authorization.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")

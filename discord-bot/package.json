@@ -3,7 +3,10 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "scripts": { "start": "node src/index.js" },
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "node --test test/*.test.mjs"
+  },
   "dependencies": { "discord.js": "^14.25.1" },
   "engines": { "node": ">=20" }
 }
