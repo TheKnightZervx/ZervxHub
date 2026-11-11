@@ -3,7 +3,8 @@ import { Client, GatewayIntentBits, REST, Routes, SlashCommandBuilder } from "di
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const guildId = process.env.DISCORD_GUILD_ID;
-const apiUrl = process.env.ZERVXHUB_API_URL?.replace(/\\/$/, "");
+const configuredApiUrl = process.env.ZERVXHUB_API_URL;
+const apiUrl = configuredApiUrl?.endsWith("/") ? configuredApiUrl.slice(0, -1) : configuredApiUrl;
 const adminToken = process.env.ZERVXHUB_ADMIN_TOKEN;
 
 if (!token || !clientId || !guildId || !apiUrl || !adminToken) {
@@ -41,9 +42,7 @@ client.on("interactionCreate", async interaction => {
         return;
       }
       const expires = new Date(data.expiresAt * 1000).toUTCString();
-      await interaction.editReply(
-        `**Your ZervxHub Free Key**\\n\\`\\`\\`${data.key}\\`\\`\\`\\nExpires: ${expires}\\nKeep this key private. It is shown only once.`
-      );
+      await interaction.editReply(`Your ZervxHub Free Key:\n${data.key}\nExpires: ${expires}\nKeep this key private. It is shown only once.`);
     } catch (error) {
       console.error("getkey failed", error);
       await interaction.editReply("Could not reach the key service. Please try again later.");
