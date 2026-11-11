@@ -17,7 +17,7 @@ ScreenGui.Name = "ZervxHubModern"
 ScreenGui.Parent = CoreGui
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
--- Main Window Frame
+-- Main Window Frame (Sidebar Layout)
 local Window = Instance.new("Frame")
 Window.Name = "MainWindow"
 Window.Parent = ScreenGui
@@ -163,7 +163,7 @@ local function AddToggle(page, labelText, defaultState, callback)
 
     local toggleBtn = Instance.new("TextButton")
     toggleBtn.Parent = frame
-    toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 170, 255) else Color3.fromRGB(45, 45, 55)
+    toggleBtn.BackgroundColor3 = state and Color3.fromRGB(0, 170, 255) or Color3.fromRGB(45, 45, 55)
     toggleBtn.Position = UDim2.new(1, -50, 0.5, -10)
     toggleBtn.Size = UDim2.new(0, 40, 0, 20)
     toggleBtn.Text = ""
