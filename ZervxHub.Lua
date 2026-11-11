@@ -1,148 +1,132 @@
--- [[ ZervxHub - Upgraded Core Script ]] --
+-- [[ ZervxHub - Standalone & Fixed Core ]] --
 
--- Load Orion Library safely
-local Success, OrionLib = pcall(function()
-    return loadstring(game:HttpGet('https://raw.githubusercontent.com/shlexware/Orion/main/source'))()
-end)
-
-if not Success or not OrionLib then
-    warn("[ZervxHub]: Failed to load UI Library.")
-    return
-end
-
--- Create Main Window
-local Window = OrionLib:MakeWindow({
-    Name = "ZervxHub | Premium Edition",
-    HidePremium = false,
-    SaveConfig = true,
-    ConfigFolder = "ZervxHubConfig",
-    IntroEnabled = true,
-    IntroText = "Welcome to ZervxHub"
-})
-
--- Services & Local Variables
+-- Safely check if core services exist
+local CoreGui = game:GetService("CoreGui")
 local Players = game:GetService("Players")
+local UserInputService = game:GetService("UserInputService")
 local RunService = game:GetService("RunService")
 local LocalPlayer = Players.LocalPlayer
-local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
-local Humanoid = Character:WaitForChild("Humanoid")
 
--- State Settings
+-- Remove previous instance if it exists to prevent duplication
+if CoreGui:FindFirstChild("ZervxHubGUI") then
+    CoreGui.ZervxHubGUI:Destroy()
+end
+
+-- Create ScreenGui
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "ZervxHubGUI"
+ScreenGui.Parent = CoreGui
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+-- Main Frame
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
+MainFrame.BorderSizePixel = 0
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125)
+MainFrame.Size = UDim2.new(0, 350, 0, 250)
+MainFrame.Active = true
+MainFrame.Draggable = true
+
+-- Corner Styling
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 8)
+UICorner.Parent = MainFrame
+
+-- Title Bar
+local TitleBar = Instance.new("TextLabel")
+TitleBar.Name = "TitleBar"
+TitleBar.Parent = MainFrame
+TitleBar.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
+TitleBar.Size = UDim2.new(1, 0, 0, 40)
+TitleBar.Font = Enum.Font.GothamBold
+TitleBar.Text = "  ZervxHub | Control Panel"
+TitleBar.TextColor3 = Color3.fromRGB(255, 255, 255)
+TitleBar.TextSize = 14
+TitleBar.TextXAlignment = Enum.TextXAlignment.Left
+
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 8)
+TitleCorner.Parent = TitleBar
+
+-- State Variables
 local Settings = {
     WalkSpeed = 16,
     JumpPower = 50,
     InfJump = false,
-    Noclip = false,
-    ESP = false
+    Noclip = false
 }
 
--- Re-assign Character on Respawn
-LocalPlayer.CharacterAdded:Connect(function(char)
-    Character = char
-    Humanoid = char:WaitForChild("Humanoid")
-    Humanoid.WalkSpeed = Settings.WalkSpeed
-    Humanoid.JumpPower = Settings.JumpPower
+-- Helper function to create buttons
+local function CreateButton(name, posY, callback)
+    local btn = Instance.new("TextButton")
+    btn.Parent = MainFrame
+    btn.BackgroundColor3 = Color3.fromRGB(40, 40, 55)
+    btn.Position = UDim2.new(0, 20, 0, posY)
+    btn.Size = UDim2.new(0, 310, 0, 35)
+    btn.Font = Enum.Font.GothamSemibold
+    btn.Text = name
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    
+    local corner = Instance.new("UICorner")
+    corner.CornerRadius = UDim.new(0, 6)
+    corner.Parent = btn
+    
+    btn.MouseButton1Click:Connect(callback)
+end
+
+-- Speed Boost Toggle Button
+local speedActive = false
+CreateButton("Toggle WalkSpeed (50)", 55, function()
+    speedActive = not speedActive
+    local char = LocalPlayer.Character
+    if char and char:FindFirstChildOfClass("Humanoid") then
+        char:FindFirstChildOfClass("Humanoid").WalkSpeed = speedActive and 50 or 16
+        print("[ZervxHub]: WalkSpeed set to " .. (speedActive and "50" or "16"))
+    end
 end)
 
----------------------------------------------------------
--- TABS & UI ELEMENTS
----------------------------------------------------------
+-- Infinite Jump Toggle Button
+CreateButton("Toggle Infinite Jump", 100, function()
+    Settings.InfJump = not Settings.InfJump
+    print("[ZervxHub]: Infinite Jump is now " .. tostring(Settings.InfJump))
+end)
 
--- Tab 1: Main Features
-local MainTab = Window:MakeTab({
-    Name = "Main",
-    Icon = "rbxassetid://4483345998",
-    PremiumOnly = false
-})
+-- Noclip Toggle Button
+CreateButton("Toggle Noclip", 145, function()
+    Settings.Noclip = not Settings.Noclip
+    print("[ZervxHub]: Noclip is now " .. tostring(Settings.Noclip))
+end)
 
-MainTab:AddSection({ Name = "Local Player Modifiers" })
-
-MainTab:AddSlider({
-    Name = "WalkSpeed",
-    Min = 16,
-    Max = 250,
-    Default = 16,
-    Color = Color3.fromRGB(255, 255, 255),
-    Increment = 1,
-    ValueName = "Speed",
-    Callback = function(Value)
-        Settings.WalkSpeed = Value
-        if Humanoid then Humanoid.WalkSpeed = Value end
-    end    
-})
-
-MainTab:AddSlider({
-    Name = "JumpPower",
-    Min = 50,
-    Max = 350,
-    Default = 50,
-    Color = Color3.fromRGB(255, 255, 255),
-    Increment = 1,
-    ValueName = "Power",
-    Callback = function(Value)
-        Settings.JumpPower = Value
-        if Humanoid then Humanoid.JumpPower = Value end
-    end    
-})
-
-MainTab:AddToggle({
-    Name = "Infinite Jump",
-    Default = false,
-    Callback = function(Value)
-        Settings.InfJump = Value
-    end    
-})
-
-MainTab:AddToggle({
-    Name = "Noclip",
-    Default = false,
-    Callback = function(Value)
-        Settings.Noclip = Value
-    end    
-})
-
--- Tab 2: Settings & Utility
-local SettingsTab = Window:MakeTab({
-    Name = "Settings",
-    Icon = "rbxassetid://4483345998",
-    PremiumOnly = false
-})
-
-SettingsTab:AddButton({
-    Name = "Rejoin Game",
-    Callback = function()
-        game:GetService("TeleportService"):TeleportToPlaceInstance(game.PlaceId, game.JobId, LocalPlayer)
-    end
-})
-
-SettingsTab:AddButton({
-    Name = "Destroy UI",
-    Callback = function()
-        OrionLib:Destroy()
-    end
-})
-
----------------------------------------------------------
--- BACKGROUND LOGIC & LOOPS
----------------------------------------------------------
+-- Unload Button
+CreateButton("Close / Unload UI", 190, function()
+    ScreenGui:Destroy()
+end)
 
 -- Infinite Jump Logic
-game:GetService("UserInputService").JumpRequest:Connect(function()
-    if Settings.InfJump and Humanoid then
-        Humanoid:ChangeState("Jumping")
+UserInputService.JumpRequest:Connect(function()
+    if Settings.InfJump then
+        local char = LocalPlayer.Character
+        if char and char:FindFirstChildOfClass("Humanoid") then
+            char:FindFirstChildOfClass("Humanoid"):ChangeState("Jumping")
+        end
     end
 end)
 
--- Noclip Logic (Stepped for smooth physics bypass)
+-- Noclip Physics Loop
 RunService.Stepped:Connect(function()
-    if Settings.Noclip and Character then
-        for _, part in ipairs(Character:GetChildren()) do
-            if part:IsA("BasePart") then
-                part.CanCollide = false
+    if Settings.Noclip then
+        local char = LocalPlayer.Character
+        if char then
+            for _, part in ipairs(char:GetChildren()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
             end
         end
     end
 end)
 
--- Initialize Library
-OrionLib:Init()
+print("[ZervxHub]: Successfully Loaded!")
