@@ -16,7 +16,7 @@ This directory contains a Cloudflare Worker + D1 key service. It is designed for
 
 1. Install Node.js, then run `npm install` in `key-system/worker`.
 2. Create the D1 database: `npm run db:create`.
-3. Copy the returned database ID into `wrangler.toml`.
+3. Copy the returned database ID into `wrangler.toml` and replace `DISCORD_APPLICATION_ID` with your Discord application's ID (this ID is not a secret).
 4. Apply the schema: `npm run db:migrate:remote`.
 5. Set secrets with Wrangler (never commit them):
    - `npx wrangler secret put DISCORD_PUBLIC_KEY`
