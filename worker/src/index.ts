@@ -31,9 +31,11 @@ const parseIds = (value: string) => value.split(",").map((v) => v.trim()).filter
 
 async function authorized(request: Request, env: Env): Promise<boolean> {
   const supplied = request.headers.get("x-admin-token") ?? "";
-  if (!env.ADMIN_TOKEN || supplied.length !== env.ADMIN_TOKEN.length) return false;
-  const a = new TextEncoder().encode(supplied);
-  const b = new TextEncoder().encode(env.ADMIN_TOKEN);
+  if (!env.ADMIN_TOKEN) return false;
+  const encoder = new TextEncoder();
+  const a = encoder.encode(supplied);
+  const b = encoder.encode(env.ADMIN_TOKEN);
+  if (a.length !== b.length) return false;
   let diff = 0;
   for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
   return diff === 0;
@@ -114,22 +116,26 @@ export default {
       if (!universeIds.length) return json({ error: "No Roblox Universe IDs are configured; issuance is disabled" }, 409, origin);
 
       const now = Math.floor(Date.now() / 1000);
-      const existing = await env.DB.prepare(
-        "SELECT created_at FROM keys WHERE discord_user_id = ?1 AND status = 'active' ORDER BY created_at DESC LIMIT 1"
-      ).bind(discordUserId).first<{ created_at: number }>();
-      if (existing && now - existing.created_at < 86400) {
-        return json({ error: "A free key was already issued in the last 24 hours" }, 429, origin);
-      }
-
       const key = makeKey();
       const keyHash = await digest(key);
       const expiresAt = now + 86400;
-      await env.DB.batch([
-        env.DB.prepare("UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active'").bind(discordUserId),
+
+      // D1 batch runs transactionally. Check every prior issuance (including revoked
+      // keys) inside the same transaction to prevent cooldown bypasses and races.
+      const results = await env.DB.batch([
         env.DB.prepare(
-          "INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids) VALUES (?1, ?2, 'active', ?3, ?4, ?5)"
-        ).bind(keyHash, discordUserId, now, expiresAt, universeIds.join(",")),
+          "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active' AND created_at <= ?2"
+        ).bind(discordUserId, now - 86400),
+        env.DB.prepare(
+          "INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids) " +
+          "SELECT ?1, ?2, 'active', ?3, ?4, ?5 WHERE NOT EXISTS (" +
+          "SELECT 1 FROM keys WHERE discord_user_id = ?2 AND created_at > ?6)"
+        ).bind(keyHash, discordUserId, now, expiresAt, universeIds.join(","), now - 86400),
       ]);
+
+      if (!results[1] || results[1].meta.changes !== 1) {
+        return json({ error: "A free key was already issued in the last 24 hours" }, 429, origin);
+      }
       return json({ key, expiresAt, durationHours: 24 }, 201, origin);
     }
 
