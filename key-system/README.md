@@ -32,7 +32,7 @@ Create a Discord application and bot in the Discord Developer Portal. Configure 
 
 `https://YOUR-WORKER-DOMAIN/discord/interactions`
 
-Register a global slash command named `getkey` (type 1, no options) for the application. Discord sends interactions directly to the Worker; no always-on bot process is required. The application public key is a Worker secret. The Worker verifies Discord's Ed25519 request signature and rejects stale timestamps.
+Register the slash command by running `DISCORD_BOT_TOKEN=... DISCORD_APPLICATION_ID=... npm run discord:register` from the worker folder (PowerShell users can set these with `$env:DISCORD_BOT_TOKEN=...` and `$env:DISCORD_APPLICATION_ID=...`). Optionally set `DISCORD_GUILD_ID` to register it instantly in one test server; otherwise it is registered globally. The helper replaces this application's command list with the single `/getkey` command. Discord sends interactions directly to the Worker; no always-on bot process is required. Keep the bot token in your local shell environment and never commit it. The application public key is a Worker secret. The Worker verifies Discord's Ed25519 request signature and rejects stale timestamps.
 
 ## Roblox integration
 
