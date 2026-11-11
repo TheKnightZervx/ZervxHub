@@ -99,6 +99,54 @@ function matchesSecret(supplied: string, expected: string | undefined) {
   return timingSafeEqual(supplied, expected);
 }
 
+const MAX_REQUEST_BODY_BYTES = 16_384;
+
+async function parseJsonBody(request: Request): Promise<
+  { data: Json; error?: never } | { data?: never; error: "too_large" | "invalid" }
+> {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    return { error: "too_large" };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { error: "invalid" };
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+        await reader.cancel();
+        return { error: "too_large" };
+      }
+      chunks.push(value);
+    }
+
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const parsed: unknown = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+    );
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { error: "invalid" };
+    }
+    return { data: parsed as Json };
+  } catch {
+    await reader.cancel().catch(() => {});
+    return { error: "invalid" };
+  }
+}
+
 export async function handleV2(
   request: Request,
   env: V2Env
@@ -140,22 +188,14 @@ export async function handleV2(
     return respond({ error: "Method not allowed" }, 405, origin);
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > 16_384) return respond({ error: "Request too large" }, 413, origin);
-  let body: unknown;
-  try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
-      return respond({ error: "Request too large" }, 413, origin);
-    }
-    body = JSON.parse(rawBody);
-  } catch {
+  const parsedBody = await parseJsonBody(request);
+  if (parsedBody.error === "too_large") {
+    return respond({ error: "Request too large" }, 413, origin);
+  }
+  if (!parsedBody.data) {
     return respond({ error: "Invalid JSON body" }, 400, origin);
   }
-  if (body === null || typeof body !== "object" || Array.isArray(body)) {
-    return respond({ error: "Invalid JSON body" }, 400, origin);
-  }
-  const data = body as Json;
+  const data = parsedBody.data;
 
   // ADMIN: create a developer and issue their API credential.
   if (url.pathname === "/v2/admin/developers") {
