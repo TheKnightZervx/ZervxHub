@@ -420,7 +420,12 @@ export async function handleV2(
   // from the guild-to-developer integration. The bot never receives admin access.
   if (url.pathname.startsWith("/v2/discord/")) {
     const supplied = request.headers.get("x-bot-token") ?? "";
-    if (!matchesSecret(supplied, env.BOT_API_TOKEN)) {
+    // Never let the bot credential become an accidental alias for admin access.
+    const botTokenIsDistinct =
+      typeof env.BOT_API_TOKEN === "string" &&
+      env.BOT_API_TOKEN.length > 0 &&
+      env.BOT_API_TOKEN !== env.ADMIN_TOKEN;
+    if (!botTokenIsDistinct || !matchesSecret(supplied, env.BOT_API_TOKEN)) {
       if (isRateLimited(request, "bot-auth-failure", 30)) {
         return respond({ error: "Too many requests" }, 429, origin);
       }
