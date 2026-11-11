@@ -180,6 +180,9 @@ export default {
     }
 
     if (!await authorized(request, env)) {
+      if (isRateLimited(request, "v1-admin-auth-failure", 40)) {
+        return json({ error: "Too many requests" }, 429, origin);
+      }
       return json({ error: "Unauthorized" }, 401, origin);
     }
 
