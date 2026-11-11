@@ -5,6 +5,7 @@ local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
 -- Clear old instances to avoid GUI clashing on Delta Mobile
@@ -21,32 +22,48 @@ getgenv().ZervxRollSettings = {
 
 -- Isolated Safe Remote Caller for Family Rerolls
 local function AttemptFamilySpinnings()
-    local remoteGET = game:GetService("ReplicatedStorage"):WaitForChild("Assets"):WaitForChild("Remotes"):WaitForChild("GET")
-    
+    -- Updated to point directly to the current AOTR remote network architecture
+    local remoteEvent = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Server"):WaitForChild("Family") or 
+                        ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("ServerEvent") or
+                        ReplicatedStorage:WaitForChild("Assets"):WaitForChild("Remotes"):WaitForChild("GET")
+
     task.spawn(function()
         while getgenv().ZervxRollSettings.IsRolling do
-            -- Fires the game's official roll network event safely
-            local success, spins, rolledFamily = pcall(function()
-                return remoteGET:InvokeServer("Family", "Roll")
+            local success, rolledFamily = pcall(function()
+                if remoteEvent:IsA("RemoteFunction") then
+                    return remoteEvent:InvokeServer("Roll")
+                elseif remoteEvent:IsA("RemoteEvent") then
+                    remoteEvent:FireServer("Roll")
+                    -- Listening directly to local data changes if using RemoteEvents
+                    task.wait(0.2)
+                    local data = LocalPlayer:FindFirstChild("Data") or LocalPlayer:FindFirstChild("Stats")
+                    local currentFam = data and (data:FindFirstChild("Family") or data:FindFirstChild("CurrentFamily"))
+                    return currentFam and currentFam.Value or nil
+                end
             end)
             
-            if success and rolledFamily then
-                local familyName = tostring(rolledFamily)
-                print("[+] ZervxHub rolled family slot: " .. familyName)
-                
-                -- Check if the rolled family matches your targets
-                if (getgenv().ZervxRollSettings.TargetFritz and familyName == "Fritz") or 
-                   (getgenv().ZervxRollSettings.TargetHelos and familyName == "Helos") then
-                    print("[!] SUCCESS: Target Mythic family obtained! Halting automation.")
+            -- Fallback secondary method tracking the exact layout shown in the UI screen
+            if not success or not rolledFamily then
+                pcall(function()
+                    local altRemote = ReplicatedStorage:WaitForChild("Remotes"):WaitForChild("Customization")
+                    altRemote:FireServer("RollFamily")
+                end)
+            end
+
+            -- Live scanner reading what family is currently equipped on your slot
+            local playerMetadata = LocalPlayer:FindFirstChild("Data") or LocalPlayer:FindFirstChild("Stats")
+            local activeFamily = playerMetadata and (playerMetadata:FindFirstChild("Family") or playerMetadata:FindFirstChild("CurrentFamily"))
+            
+            if activeFamily then
+                local currentFamilyName = tostring(activeFamily.Value)
+                if (getgenv().ZervxRollSettings.TargetFritz and currentFamilyName == "Fritz") or 
+                   (getgenv().ZervxRollSettings.TargetHelos and currentFamilyName == "Helos") then
                     getgenv().ZervxRollSettings.IsRolling = false
                     break
                 end
-            else
-                warn("[-] Rolling sequence halted or out of spins.")
-                getgenv().ZervxRollSettings.IsRolling = false
-                break
             end
-            task.wait(0.3) -- Built-in safety latency layer to prevent executor disconnection
+            
+            task.wait(0.4) -- Prevents mobile disconnection from rapid server requests
         end
     end)
 end
