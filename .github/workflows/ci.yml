@@ -2,7 +2,7 @@ name: ZervxHub CI
 
 on:
   pull_request:
-    branches: [main]
+    branches: [main, "mission3-*"]
   push:
     branches: [main, "codex/**", "mission3-*"]
 
