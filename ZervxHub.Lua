@@ -1,74 +1,126 @@
--- [[ ZERVXHUB - ULTIMATE TEKKIT ENGINE FOR MOBILE ]] --
+-- [[ ZERVXHUB - PREMIUM TEKKIT ENGINE EDITION ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
 
--- تفعيل المتغيرات الأساسية للمحرك الذكي
+-- Premium Engine Globals Configuration
 getgenv().ZervxHub = {
-    AutoFarm = true,       -- اجعله يعمل تلقائياً فور التشغيل
-    SafeMode = true,       -- الحماية العشوائية ضد الباند
-    HitboxSize = 6.5,      -- حجم منطقة ضرب الرقبة الأمثل للموبايل
-    InfiniteGas = true     -- تفعيل الموارد المستمرة
+    AutoFarm = true,         -- Seamless loop execution
+    SafeMode = false,        -- Set false for pure Tekkit-Premium aggressive speeds
+    HitboxSize = 12.0,       -- Maximum reliable hitbox expansion
+    InfiniteGas = true,      -- Uncapped operational resources
+    FarmSpeed = 195,         -- Premium instant-velocity rating
+    InstantKill = true       -- Multi-cast tool execution
 }
 
--- التأكد من تهيئة حاوية الواجهة
-local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
+local function GetClosestTarget()
+    local char = LocalPlayer.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+    
+    local targetFolder = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
+    if not targetFolder then return nil end
+    
+    local closestTitan = nil
+    local shortestDistance = math.huge
+    
+    for _, titan in pairs(targetFolder:GetChildren()) do
+        if titan:FindFirstChild("Nape") and titan:FindFirstChild("Humanoid") and titan.Humanoid.Health > 0 then
+            local distance = (char.HumanoidRootPart.Position - titan.Nape.Position).Magnitude
+            if distance < shortestDistance then
+                shortestDistance = distance
+                closestTitan = titan
+            end
+        end
+    end
+    return closestTitan
+end
 
--- محرك الـ Auto-Farm الاحترافي المخفي (يعمل في الخلفية بأعلى أداء)
+-- Ultimate Core Farm Loop
 task.spawn(function()
     while true do
-        task.wait(0.05) -- سرعة استجابة فائقة (20 فريم في الثانية للفحص)
+        RunService.Heartbeat:Wait()
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
-                -- 1. حارس الحماية: فحص حالة اللاعب قبل الحركة لمنع انهيار اللعبة
                 if not char or not char:FindFirstChild("HumanoidRootPart") or (char:FindFirstChild("Humanoid") and char.Humanoid.Health <= 0) then
                     return
                 end
                 
-                -- دعم جلب كافة مجلدات الأعداء والعمالقة المتوقعة في الجيم
-                local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
-                if Titans then
-                    for _, titan in pairs(Titans:GetChildren()) do
-                        if not getgenv().ZervxHub.AutoFarm then break end
+                local hrp = char.HumanoidRootPart
+                local target = GetClosestTarget()
+                
+                if target and target:FindFirstChild("Nape") then
+                    local nape = target.Nape
+                    
+                    -- Anti-Anti-Cheat Jitter Calculation
+                    local offset = getgenv().ZervxHub.SafeMode and Vector3.new(math.random(-1, 1), math.random(-1, 1), 2.5) or Vector3.new(0, 0, 1.8)
+                    local targetCFrame = nape.CFrame * CFrame.new(offset)
+                    
+                    -- Instant Velocity Adjustment (Bypass Roblox Body Movers)
+                    while getgenv().ZervxHub.AutoFarm and target.Humanoid.Health > 0 and (hrp.Position - targetCFrame.Position).Magnitude > 4 do
+                        local travelDistance = (hrp.Position - targetCFrame.Position).Magnitude
+                        local speedFactor = getgenv().ZervxHub.FarmSpeed
                         
-                        -- التحقق من أن العملاق حي ولديه نقطة رقبة مستهدفة
-                        if titan:FindFirstChild("Nape") and titan:FindFirstChild("Humanoid") and titan.Humanoid.Health > 0 then
-                            local hrp = char.HumanoidRootPart
-                            local nape = titan.Nape
+                        -- Anchor velocity to eliminate mobile rubber-banding
+                        hrp.Velocity = Vector3.new(0, 0, 0)
+                        hrp.CFrame = CFrame.lookAt(hrp.Position, nape.Position)
+                        
+                        local tween = TweenService:Create(hrp, TweenInfo.new(travelDistance / speedFactor, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+                        tween:Play()
+                        tween.Completed:Wait()
+                    end
+                    
+                    -- Premium Multi-Cast Kill Window Execution
+                    if target.Humanoid.Health > 0 then
+                        -- Expand Neck Hitbox
+                        if nape:IsA("Part") then
+                            nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
+                            nape.CanCollide = false
+                        end
+                        
+                        -- Force Tool Deployment & Activation
+                        local tool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
+                        if tool then
+                            if tool.Parent ~= char then 
+                                tool.Parent = char 
+                            end
                             
-                            -- 2. التموضع العشوائي الذكي (Tekkit Style Logic) لكسر نمط الكاشف
-                            local randomX = getgenv().ZervxHub.SafeMode and (math.random(-12, 12) / 10) or 0
-                            local randomY = getgenv().ZervxHub.SafeMode and (math.random(-8, 15) / 10) or 0
-                            local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 3.2)
-                            
-                            -- 3. نظام السرعة الديناميكية المتغيرة لمحاكاة الخطافات الطبيعية
-                            local distance = (hrp.Position - targetCFrame.Position).Magnitude
-                            local speed = getgenv().ZervxHub.SafeMode and math.random(115, 138) or 175
-                            local duration = distance / speed
-                            
-                            -- تنفيذ الحركة السلسة وحماية الشخصية أثناء الطيران
-                            if hrp and hrp.Parent then
-                                local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.QuadOut), {CFrame = targetCFrame})
-                                tween:Play()
-                                tween.Completed:Wait() -- الانتظار حتى الوصول التام خلف الرقبة
-                                
-                                -- 4. تكبير الـ Hitbox وتفعيل السلاح لمسياً بشكل مباشر لقمع الحظر
-                                if nape and nape:FindFirstChild("Size") then
-                                    nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
+                            -- Double Attack Loop (Tekkit Emulation)
+                            tool:Activate()
+                            if getgenv().ZervxHub.InstantKill then
+                                task.spawn(function()
+                                    tool:Activate()
+                                end)
+                            end
+                        end
+                    end
+                    
+                    if getgenv().ZervxHub.SafeMode then task.wait(0.15) end
+                end
+            end)
+        end
+    end
+end)
+
+-- Resource Overflow Thread (Gas, Blades, Infrastructure Values)
+task.spawn(function()
+    while task.wait(0.2) do
+        if getgenv().ZervxHub.InfiniteGas then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char then
+                    -- Global inventory variable support structures
+                    local vars = char:FindFirstChild("Variables") or char:FindFirstChild("Stats")
+                    if vars then
+                        for _, val in pairs(vars:GetChildren()) do
+                            if val:IsA("NumberValue") or val:IsA("IntValue") then
+                                if val.Name:lower():find("gas") or val.Name:lower():find("blade") then
+                                    val.Value = 9999
                                 end
-                                
-                                -- تفعيل السلاح الممسوك تلقائياً
-                                local tool = char:FindFirstChildOfClass("Tool")
-                                if tool then 
-                                    tool:Activate() 
-                                end
-                                
-                                -- مهلة عشوائية بسيطة بعد الضرب لمزيد من الأمان
-                                task.wait(getgenv().ZervxHub.SafeMode and (math.random(2, 4) / 10) or 0.1)
                             end
                         end
                     end
@@ -78,17 +130,7 @@ task.spawn(function()
     end
 end)
 
--- خادم الموارد المستمرة (الغاز والشفرات) لتسريع جني الثروة
-task.spawn(function()
-    while task.wait(0.3) do
-        pcall(function()
-            local char = LocalPlayer.Character
-            if char and char:FindFirstChild("Variables") then
-                local vars = char.Variables
-                if getgenv().ZervxHub.InfiniteGas and vars:FindFirstChild("Gas") then vars.Gas.Value = 100 end
-            end
-        end)
-    end
-end)
-
-print("[+] ZervxHub Ultimate Farm Engine Activated!")
+print("[========================================]")
+print("[+] ZervxHub Premium Engine Module Initialized")
+print("[+] Mode: Tekkit Optimization Engine")
+print("[========================================]")
