@@ -9,6 +9,6 @@ database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
 
 [vars]
 KEY_TTL_HOURS = "24"
+DISCORD_APPLICATION_ID = "REPLACE_WITH_DISCORD_APPLICATION_ID"
 # Set secrets with: npx wrangler secret put DISCORD_PUBLIC_KEY
-# Set secrets with: npx wrangler secret put DISCORD_APPLICATION_ID
 # Set secrets with: npx wrangler secret put ROBLOX_SERVER_TOKEN
