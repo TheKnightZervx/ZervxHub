@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - ISOLATED RADIAL OCEAN LOBBY GATEWAY ]] --
+-- [[ ZERVXHUB - INSTANT RUN OCEAN LOBBY GATEWAY ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -7,7 +7,7 @@ local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui") or TargetGuiContainer
 local TweenService = game:GetService("TweenService")
 
--- 🧹 DESTRUCTIVE SANITIZATION SWEEP: DELETES ALL TRACE SCRIPT OVERLAPS
+-- 🧹 DESTRUCTIVE SANITIZATION SWEEP
 local systemName = "ZervxHub_KeySystem"
 for _, container in pairs({TargetGuiContainer, CoreGui}) do
     for _, child in pairs(container:GetChildren()) do
@@ -118,7 +118,7 @@ Title.BackgroundTransparency = 1
 Title.Position = UDim2.new(0, 0, 0, 10)
 Title.Size = UDim2.new(1, 0, 0, 30)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "🌊 ZERVXHUB | OCEAN GATEWAY"
+Title.Text = "⚓ ZERVXHUB | OCEAN GATEWAY"
 Title.TextColor3 = Color3.fromRGB(245, 250, 255)
 Title.TextSize = 13
 Title.ZIndex = 11
@@ -197,21 +197,13 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(0.3)
         KeyGui:Destroy()
         
-        -- [COPIED FROM ADVANCED INITIALIZERS]: Persistent, isolated sandboxed listener thread 
+        -- [INSTANT FORWARD]: Immediately downloads the main script sandbox without getting stuck waiting here
         task.spawn(function()
-            while true do
-                -- Continually scans workspace to see if user left character screen and loaded onto a match map
-                local validMap = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
-                if validMap and LocalPlayer.Character and LocalPlayer.Character:FindFirstChild("HumanoidRootPart") then
-                    local success, err = pcall(function()
-                        loadstring(game:HttpGet("https://githubusercontent.com"))()
-                    end)
-                    if not success then
-                        warn("[-] Isolated Runtime Error on Main Target Allocation: " .. tostring(err))
-                    end
-                    break -- Interface loaded onto active target arena; break background thread
-                end
-                task.wait(1) -- Low overhead poll cycle
+            local success, err = pcall(function()
+                loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
+            end)
+            if not success then
+                warn("[-] Error starting Main Hub Execution: " .. tostring(err))
             end
         end)
     else
