@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - ADVANCED TEKKIT HUB EDITION ]] --
+-- [[ ZERVXHUB - ADVANCED TEKKIT HUB EDITION FIXED ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -91,18 +91,18 @@ local UICorner = Instance.new("UICorner")
 FloatingButton.Name = "FloatingIcon"
 FloatingButton.Parent = ScreenGui
 FloatingButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-FloatingButton.Position = UDim2.new(0.02, 0, 0.15, 0) -- موقع استراتيجي في الزاوية العليا
-FloatingButton.Size = UDim2.new(0, 45, 0, 45)       -- تصميم دائري متناسق لقمع الرصد بالبث
+FloatingButton.Position = UDim2.new(0.02, 0, 0.15, 0) -- موقع في الزاوية العليا
+FloatingButton.Size = UDim2.new(0, 45, 0, 45)       
 FloatingButton.Font = Enum.Font.SourceSansBold
 FloatingButton.Text = "Z"
 FloatingButton.TextColor3 = Color3.fromRGB(20, 20, 20)
 FloatingButton.TextSize = 20
 FloatingButton.ZIndex = 1000000
 
-UICorner.CornerRadius = UDim.new(1, 0) -- جعل الأيقونة دائرية بالكامل
+UICorner.CornerRadius = UDim.new(1, 0) 
 UICorner.Parent = FloatingButton
 
--- معالجة حركة وسحب الأيقونة العائمة لكي لا تضايقك أثناء اللعب
+-- معالجة حركة وسحب الأيقونة العائمة
 local floatDragging, floatDragStart, floatStartPos
 FloatingButton.InputBegan:Connect(function(input)
     if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -125,12 +125,12 @@ FloatingButton.InputEnded:Connect(function(input)
     end
 end)
 
--- عمل الإخفاء والإظهار عند النقر السريع على الأيقونة
+-- عمل الإخفاء والإظهار عند النقر على الأيقونة
 FloatingButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- دالة تصنيع الأزرار التفاعلية
+-- دالة تصنيع الأزرار
 local function CreateToggle(text, configValue)
     local Button = Instance.new("TextButton")
     Button.Parent = TabContainer
@@ -160,7 +160,7 @@ CreateToggle("Tekkit Auto Farm (Safe Nape)", "AutoFarm")
 CreateToggle("Infinite Gas & Blades", "InfiniteGas")
 CreateToggle("Auto Escape Titan Grabs", "AutoEscape")
 
--- 3. خوادم إدارة الشخصية والموارد اللانهائية والهروب السريع
+-- 3. خوادم إدارة الشخصية والموارد
 task.spawn(function()
     while task.wait(0.2) do
         pcall(function()
@@ -188,7 +188,6 @@ task.spawn(function()
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
-                -- فحص صارم لحالة اللاعب الشخصية لحمايته من جدار الحظر عند الموت
                 if not char or not char:FindFirstChild("HumanoidRootPart") or (char:FindFirstChild("Humanoid") and char.Humanoid.Health <= 0) then
                     return
                 end
@@ -202,12 +201,11 @@ task.spawn(function()
                             local hrp = char.HumanoidRootPart
                             local nape = titan.Nape
                             
-                            -- محاكاة تكيت الذكية: إحداثيات انحراف ميكانيكية عشوائية تمنع رصد السيرفر للثبات
+                            -- محاكاة عشوائية لتجنب الرصد الحركي الحامي
                             local randomX = getgenv().ZervxHub.SafeMode and (math.random(-15, 15) / 10) or 0
                             local randomY = getgenv().ZervxHub.SafeMode and (math.random(-10, 20) / 10) or 0
                             local targetPos = nape.CFrame * CFrame.new(randomX, randomY, 3.4)
                             
-                            -- نظام حركة هجين متغير السرعة لحجب كواشف حظر الانتقال التلقائي
                             local distance = (hrp.Position - targetPos.Position).Magnitude
                             local speed = getgenv().ZervxHub.SafeMode and math.random(115, 135) or 170
                             local duration = distance / speed
@@ -217,7 +215,6 @@ task.spawn(function()
                                 tween:Play()
                                 tween.Completed:Wait()
                                 
-                                -- تعديل نطاق الضربة بأمان وتفعيل الأداة بشكل لمسي مباشر لقمع الكاشف
                                 if nape and nape:FindFirstChild("Size") then
                                     nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
                                 end
@@ -227,3 +224,11 @@ task.spawn(function()
                                 task.wait(getgenv().ZervxHub.SafeMode and (math.random(2, 4) / 10) or 0.1)
                             end
                         end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+print("[+] ZervxHub Premium Tekkit Engine Successfully Injected!")
