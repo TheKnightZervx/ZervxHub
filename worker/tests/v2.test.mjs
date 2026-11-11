@@ -107,6 +107,14 @@ class MemoryD1 {
         return null;
       },
       async all() {
+        if (normalized.startsWith("SELECT id AS developerId, discord_user_id AS discordUserId")) {
+          return { results: [...db.developers.values()]
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 100)
+            .map(({ id: developerId, discordUserId, displayName, status, createdAt }) => ({
+              developerId, discordUserId, displayName, status, createdAt,
+            })) };
+        }
         if (normalized.startsWith("SELECT universe_id AS universeId, name, status, verified_at AS verifiedAt FROM games")) {
           const [developerId] = args;
           return { results: [...db.games.values()]
@@ -361,6 +369,29 @@ testCase("admin creates developers; developer API keys are hashed and admin rout
   assert.deepEqual(await json(revoked), { revoked: true });
   const afterRevoke = await api.request("/v2/games", { method: "GET", headers: devHeaders(created.apiKey) });
   assert.equal(afterRevoke.status, 401);
+});
+
+testCase("admins can list developers while unauthenticated callers are denied", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Listed Developer");
+
+  const denied = await api.request("/v2/admin/developers", { method: "GET" });
+  assert.equal(denied.status, 401);
+
+  const listed = await api.request("/v2/admin/developers", {
+    method: "GET",
+    headers: adminHeaders,
+  });
+  assert.equal(listed.status, 200);
+  const data = await json(listed);
+  assert.equal(data.developers.length, 1);
+  assert.deepEqual(data.developers[0], {
+    developerId: developer.developerId,
+    discordUserId: GUILD_1,
+    displayName: "Listed Developer",
+    status: "active",
+    createdAt: data.developers[0].createdAt,
+  });
 });
 
 testCase("admin can rotate a developer API key and the previous key stops working", async () => {
