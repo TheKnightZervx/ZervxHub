@@ -29,7 +29,7 @@ The V2 bot is tenant-scoped. Before the bot can issue keys, an administrator mus
 2. Use `POST /v2/admin/discord-integrations` with the `x-admin-token` header and JSON containing the Discord guild ID and developer ID.
 3. Review/approve the developer's registered Roblox Universe IDs through `POST /v2/admin/games/review` after the developer registers them with `POST /v2/games/register`.
 
-Do not give the developer API key or admin token to the Discord bot. The bot uses its separate BOT_API_TOKEN only.
+If a developer loses their API key, an administrator can issue a replacement with `POST /v2/admin/developer-keys/rotate` and the developer ID; this revokes all previous API keys for that developer. Do not give the developer API key or admin token to the Discord bot. The bot uses its separate BOT_API_TOKEN only.
 
 ## Discord bot on Railway
 
