@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - EXCLUSIVE PURE AUTOMATION SUITE LAYER ]] --
+-- [[ ZERVXHUB - BACKGROUND WAIT MAIN AUTOMATION SUITE ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -6,12 +6,6 @@ local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
-
--- Overlap Canvas Removals
-local uiElements = {"ZervxOceanMainHub", "ZervxFloatingIconGui"}
-for _, uiName in pairs(uiElements) do
-    if CoreGui:FindFirstChild(uiName) then pcall(function() CoreGui[uiName]:Destroy() end) end
-end
 
 -- Shared Optimization Vectors Parameters Configuration
 getgenv().ZervxHub = {
@@ -47,10 +41,10 @@ local function GetClosestTitan()
     return closest
 end
 
--- [COPIED FROM HIGH-END FARM LOOPS]: Ultimate 1-Strike Instant Velocity Farm Core
+-- Ultimate 1-Strike Instant Velocity Farm Core Thread Loop
 task.spawn(function()
     while true do
-        task.wait(0.02) -- Framerate optimized precision timing cycle
+        task.wait(0.02)
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
@@ -69,12 +63,10 @@ task.spawn(function()
                         
                         hrp.Velocity = Vector3.new(0, 0, 0)
                         
-                        -- Force instant-kill state parameters
                         if getgenv().ZervxHub.InstantKill then
                             humanoid.Health = 0
                         end
                         
-                        -- CFrame Snapping to bypass rubberbanding errors entirely
                         hrp.CFrame = targetCFrame
                         
                         if nape:IsA("Part") then
@@ -115,8 +107,14 @@ task.spawn(function()
     end
 end)
 
--- Ocean Control Room Layout Builder
+-- Ocean Control Room Layout Builder Panel
 local function BuildZervxOceanInterface()
+    -- Overlap Canvas Removals
+    local uiElements = {"ZervxOceanMainHub", "ZervxFloatingIconGui"}
+    for _, uiName in pairs(uiElements) do
+        if CoreGui:FindFirstChild(uiName) then pcall(function() CoreGui[uiName]:Destroy() end) end
+    end
+
     local MainGui = Instance.new("ScreenGui")
     MainGui.Name = "ZervxOceanMainHub"
     MainGui.Parent = CoreGui
@@ -238,3 +236,7 @@ local function BuildZervxOceanInterface()
             getgenv().ZervxHub[propertyName] = not getgenv().ZervxHub[propertyName]
             Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
             local targetColor = getgenv().ZervxHub[propertyName] and Color3.fromRGB(0, 140, 210) or Color3.fromRGB(4, 8, 14)
+            TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = targetColor}):Play()
+        end)
+    end
+
