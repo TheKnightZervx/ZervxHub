@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - AUTOMATED OCEAN PREMIUM SUITE ]] --
+-- [[ ZERVXHUB - EXCLUSIVE PURE AUTOMATION SUITE LAYER ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -7,13 +7,13 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
--- Multi-Layer Workspace Engine Destroyer Safeguard
+-- Destructive Overlap Cleanup Blocks
 local uiElements = {"ZervxOceanMainHub", "ZervxFloatingIconGui"}
 for _, uiName in pairs(uiElements) do
-    if CoreGui:FindFirstChild(uiName) then CoreGui[uiName]:Destroy() end
+    if CoreGui:FindFirstChild(uiName) then pcall(function() CoreGui[uiName]:Destroy() end) end
 end
 
--- Global Operational Automation Configurations
+-- Global Isolation Engine Parameters Configuration
 getgenv().ZervxHub = {
     AutoFarm = false,
     SafeMode = true,
@@ -22,7 +22,6 @@ getgenv().ZervxHub = {
     InstantKill = true
 }
 
--- Target Scanning Engine Geometry Parser
 local function GetClosestTitan()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
@@ -48,10 +47,10 @@ local function GetClosestTitan()
     return closest
 end
 
--- Thread Core 1: 1-Strike Instant Kill & Teleport Engine Loop
+-- Thread Pool A: 1-Strike Instant Kill Speed Reposition Loop Engine
 task.spawn(function()
     while true do
-        task.wait(0.05) -- High speed response refresh rate
+        task.wait(0.05)
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
@@ -64,28 +63,23 @@ task.spawn(function()
                     local humanoid = titan:FindFirstChildOfClass("Humanoid")
                     
                     if nape and humanoid and humanoid.Health > 0 then
-                        -- Position offset mechanics
                         local randomX = getgenv().ZervxHub.SafeMode and (math.random(-8, 8) / 10) or 0
                         local randomY = getgenv().ZervxHub.SafeMode and (math.random(-4, 10) / 10) or 0
                         local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 2.5)
                         
                         hrp.Velocity = Vector3.new(0, 0, 0)
                         
-                        -- Instant 1-Strike Kill Implementation
                         if getgenv().ZervxHub.InstantKill then
                             humanoid.Health = 0
                         end
                         
-                        -- Seamless Teleport Position Snap
                         hrp.CFrame = targetCFrame
                         
-                        -- Hitbox Matrix Deployment
                         if nape:IsA("Part") then
                             nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
                             nape.CanCollide = false
                         end
                         
-                        -- Auto Tool Slasher Activation
                         local tool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
                         if tool then
                             if tool.Parent ~= char then tool.Parent = char end
@@ -98,7 +92,7 @@ task.spawn(function()
     end
 end)
 
--- Thread Core 2: Continuous Resource Auto-Refill Loop
+-- Thread Pool B: Resource Automatic Replication Refill Core
 task.spawn(function()
     while true do
         task.wait(0.2)
@@ -119,14 +113,13 @@ task.spawn(function()
     end
 end)
 
--- Core UI Constructor System
+-- Dynamic Dash Board Constructor Gateway Function
 local function BuildZervxOceanInterface()
-    -- Main Dashboard Display Configuration
     local MainGui = Instance.new("ScreenGui")
     MainGui.Name = "ZervxOceanMainHub"
     MainGui.Parent = CoreGui
     MainGui.ResetOnSpawn = false
-    MainGui.Enabled = false -- Hidden by default until icon interaction triggers visibility
+    MainGui.Enabled = false
     
     local BaseFrame = Instance.new("Frame")
     BaseFrame.Name = "BaseFrame"
@@ -171,7 +164,33 @@ local function BuildZervxOceanInterface()
     Divider.Position = UDim2.new(0.08, 0, 0, 40)
     Divider.Size = UDim2.new(0.84, 0, 0, 1)
 
-    -- Mobile Draggable Layer Wrapper Logic
+    -- Floating Icon Layer View Setup
+    local IconGui = Instance.new("ScreenGui")
+    IconGui.Name = "ZervxFloatingIconGui"
+    IconGui.Parent = CoreGui
+    IconGui.ResetOnSpawn = false
+    
+    local IconButton = Instance.new("TextButton")
+    IconButton.Name = "IconButton"
+    IconButton.Parent = IconGui
+    IconButton.BackgroundColor3 = Color3.fromRGB(6, 12, 22)
+    IconButton.Position = UDim2.new(0.02, 0, 0.15, 0)
+    IconButton.Size = UDim2.new(0, 44, 0, 44)
+    IconButton.Font = Enum.Font.GothamBold
+    IconButton.Text = "🌊"
+    IconButton.TextSize = 18
+    IconButton.ZIndex = 20
+
+    local IconCorner = Instance.new("UICorner")
+    IconCorner.CornerRadius = UDim.new(1, 0)
+    IconCorner.Parent = IconButton
+
+    local IconStroke = Instance.new("UIStroke")
+    IconStroke.Thickness = 2
+    IconStroke.Color = Color3.fromRGB(0, 210, 255)
+    IconStroke.Parent = IconButton
+
+    -- Dragging Handler Interface Logic Wrapper 
     local dragging, dragInput, dragStart, startPos
     BaseFrame.InputBegan:Connect(function(input)
         if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
@@ -219,18 +238,3 @@ local function BuildZervxOceanInterface()
             getgenv().ZervxHub[propertyName] = not getgenv().ZervxHub[propertyName]
             Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
             local targetColor = getgenv().ZervxHub[propertyName] and Color3.fromRGB(0, 140, 210) or Color3.fromRGB(4, 8, 14)
-            TweenService:Create(Button, TweenInfo.new(0.2, Enum.EasingStyle.Quad), {BackgroundColor3 = targetColor}):Play()
-        end)
-    end
-
-    AddToggle("AUTOMATED FARM", 0, "AutoFarm")
-    AddToggle("ANTI-CHEAT BYPASS", 1, "SafeMode")
-    AddToggle("AUTO REFILL UTILITY", 2, "AutoRefill")
-    AddToggle("INSTANT 1-STRIKE KILL", 3, "InstantKill")
-
-    -- Floating Icon View Setup
-    local IconGui = Instance.new("ScreenGui")
-    IconGui.Name = "ZervxFloatingIconGui"
-    IconGui.Parent = CoreGui
-    IconGui.ResetOnSpawn = false
-
