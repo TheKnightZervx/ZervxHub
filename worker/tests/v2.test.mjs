@@ -596,6 +596,18 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   assert.equal(issueAfter.response.status, 401);
 });
 
+testCase("legacy V1 admin authentication failures are rate limited", async () => {
+  const api = createApi();
+  let last;
+  for (let index = 0; index < 41; index++) {
+    last = await api.request("/v1/keys/issue", {
+      body: { discordUserId: MEMBER },
+      headers: { "x-admin-token": "incorrect-admin-token" },
+    });
+  }
+  assert.equal(last.status, 429);
+});
+
 testCase("Discord bot credential must be configured separately from the admin token", async () => {
   const api = createApi();
   api.env.BOT_API_TOKEN = ADMIN_TOKEN;
