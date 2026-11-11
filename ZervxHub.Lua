@@ -1,24 +1,32 @@
--- [[ ZERVXHUB - ULTIMATE TEKKIT ENGINE FOR MOBILE ]] --
+-- [[ ZERVXHUB - ULTIMATE MOBILE FARM ENGINE & CONTROLLER ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local UserInputService = game:GetService("UserInputService")
+local CoreGui = game:GetService("CoreGui") or LocalPlayer:WaitForChild("PlayerGui")
 
--- تفعيل المتغيرات الأساسية للمحرك الذكي
+-- Clean up any old existing GUI versions to prevent execution overlap
+if CoreGui:FindFirstChild("ZervxMainHub") then
+    CoreGui:FindFirstChild("ZervxMainHub"):Destroy()
+end
+
+-- Global Engine Configuration Parameters
 getgenv().ZervxHub = {
-    AutoFarm = true,       
+    AutoFarm = false,       
     SafeMode = true,       
-    HitboxSize = 6.5,      
-    InfiniteGas = true     
+    HitboxSize = 8.5,      
+    InfiniteGas = true,
+    InstantKill = true
 }
 
--- التابع المضاف لجلب أقرب عملاق بدلاً من تكرار الكل معاً لمنع تعليق اللعبة
+-- Target Parsing System (Nape Lock Mechanics)
 local function GetClosestTitan()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
     
+    -- Dynamically maps workspace paths across different game version names
     local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
     if not Titans then return nil end
     
@@ -26,8 +34,12 @@ local function GetClosestTitan()
     local shortestDistance = math.huge
     
     for _, titan in pairs(Titans:GetChildren()) do
-        if titan:FindFirstChild("Nape") and titan:FindFirstChild("Humanoid") and titan.Humanoid.Health > 0 then
-            local dist = (char.HumanoidRootPart.Position - titan.Nape.Position).Magnitude
+        -- Scans for Nape location points and valid health values
+        local targetPart = titan:FindFirstChild("Nape") or titan:FindFirstChild("Neck")
+        local humanoid = titan:FindFirstChildOfClass("Humanoid")
+        
+        if targetPart and humanoid and humanoid.Health > 0 then
+            local dist = (char.HumanoidRootPart.Position - targetPart.Position).Magnitude
             if dist < shortestDistance then
                 shortestDistance = dist
                 closest = titan
@@ -37,10 +49,10 @@ local function GetClosestTitan()
     return closest
 end
 
--- محرك الـ Auto-Farm الاحترافي المخفي
+-- Main Automated Farm Engine Context Loop
 task.spawn(function()
     while true do
-        task.wait(0.1) -- مهلة آمنة تمنع كراش الدلتا (Delta Engine Safe-guard)
+        task.wait(0.1) -- Mobile Delta Engine anti-crash latency buffer
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
@@ -51,42 +63,48 @@ task.spawn(function()
                 local titan = GetClosestTitan()
                 if titan then
                     local hrp = char.HumanoidRootPart
-                    local nape = titan.Nape
+                    local nape = titan:FindFirstChild("Nape") or titan:FindFirstChild("Neck")
+                    local humanoid = titan:FindFirstChildOfClass("Humanoid")
                     
-                    -- التموضع العشوائي الذكي
-                    local randomX = getgenv().ZervxHub.SafeMode and (math.random(-12, 12) / 10) or 0
-                    local randomY = getgenv().ZervxHub.SafeMode and (math.random(-8, 15) / 10) or 0
-                    local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 3.2)
-                    
-                    -- نظام السرعة الديناميكية المتغيرة
-                    local distance = (hrp.Position - targetCFrame.Position).Magnitude
-                    local speed = getgenv().ZervxHub.SafeMode and math.random(115, 138) or 175
-                    local duration = distance / speed
-                    
-                    if hrp and hrp.Parent and titan.Humanoid.Health > 0 then
-                        -- إبطال قوى الجاذبية لمنع الارتداد على الموبايل
+                    if nape and humanoid and humanoid.Health > 0 then
+                        -- Safe Mode Anti-Cheat Bypass Offsetting Positions
+                        local randomX = getgenv().ZervxHub.SafeMode and (math.random(-10, 10) / 10) or 0
+                        local randomY = getgenv().ZervxHub.SafeMode and (math.random(-5, 12) / 10) or 0
+                        local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 2.8)
+                        
+                        -- Adaptive Tween Scaling Velocity Profile
+                        local distance = (hrp.Position - targetCFrame.Position).Magnitude
+                        local speed = getgenv().ZervxHub.SafeMode and math.random(120, 145) or 220
+                        local duration = distance / speed
+                        
+                        -- Anchor out gravity factors to eliminate vertical rubberbanding on mobile devices
                         hrp.Velocity = Vector3.new(0, 0, 0)
                         
-                        local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.QuadOut), {CFrame = targetCFrame})
-                        tween:Play()
-                        tween.Completed:Wait() 
+                        local farmTween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.QuadOut), {CFrame = targetCFrame})
+                        farmTween:Play()
+                        farmTween.Completed:Wait()
                         
-                        -- تصحيح مشكلة فحص حجم الهيت بوكس (تغيير الخاصية مباشرة بدلاً من البحث عنها كإبن)
-                        if nape:IsA("Part") and titan.Humanoid.Health > 0 then
+                        -- Instant Kill Simulation Mode
+                        if getgenv().ZervxHub.InstantKill and humanoid.Health > 0 then
+                            humanoid.Health = 0
+                        end
+                        
+                        -- Enlarge Vulnerable Target Elements (Hitbox Expansion)
+                        if nape:IsA("Part") and humanoid.Health > 0 then
                             nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
                             nape.CanCollide = false
                         end
                         
-                        -- تفعيل السلاح الممسوك تلقائياً
+                        -- Active Equipment Auto-Striker Handler
                         local tool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-                        if tool then 
+                        if tool then
                             if tool.Parent ~= char then
                                 tool.Parent = char
                             end
-                            tool:Activate() 
+                            tool:Activate()
                         end
                         
-                        task.wait(getgenv().ZervxHub.SafeMode and (math.random(2, 4) / 10) or 0.1)
+                        task.wait(getgenv().ZervxHub.SafeMode and (math.random(1, 3) / 10) or 0.05)
                     end
                 end
             end)
@@ -94,20 +112,121 @@ task.spawn(function()
     end
 end)
 
--- خادم الموارد المستمرة (الغاز والشفرات)
+-- Resource Refill Sub-Process Loop (Infinite Gas & Utility Replenishing)
 task.spawn(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.4)
         if getgenv().ZervxHub.InfiniteGas then
             pcall(function()
                 local char = LocalPlayer.Character
-                if char and char:FindFirstChild("Variables") then
-                    local vars = char.Variables
-                    if vars:FindFirstChild("Gas") then vars.Gas.Value = 100 end
+                if char then
+                    -- Scans internal variables folder structures across generic AoT setups
+                    local vars = char:FindFirstChild("Variables") or char:FindFirstChild("Stats") or LocalPlayer:FindFirstChild("Stats")
+                    if vars then
+                        local gas = vars:FindFirstChild("Gas") or vars:FindFirstChild("Blades")
+                        if gas and gas:IsA("ValueBase") then
+                            gas.Value = 100
+                        end
+                    end
                 end
             end)
         end
     end
 end)
 
-print("[+] ZervxHub Ultimate Farm Engine Activated & Patched!")
+-- ========================================== --
+--  PREMIUM CYBERPUNK USER INTERFACE CONTROLLER  --
+-- ========================================== --
+
+local MainGui = Instance.new("ScreenGui")
+MainGui.Name = "ZervxMainHub"
+MainGui.Parent = CoreGui
+MainGui.ResetOnSpawn = false
+MainGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local BaseFrame = Instance.new("Frame")
+BaseFrame.Name = "BaseFrame"
+BaseFrame.Parent = MainGui
+BaseFrame.BackgroundColor3 = Color3.fromRGB(13, 13, 16)
+BaseFrame.Position = UDim2.new(0.05, 0, 0.25, 0)
+BaseFrame.Size = UDim2.new(0, 190, 0, 240)
+BaseFrame.Active = true
+BaseFrame.BorderSizePixel = 0
+
+local FrameCorner = Instance.new("UICorner")
+FrameCorner.CornerRadius = UDim.new(0, 10)
+FrameCorner.Parent = BaseFrame
+
+local FrameStroke = Instance.new("UIStroke")
+FrameStroke.Thickness = 1.5
+FrameStroke.Color = Color3.fromRGB(255, 115, 0)
+FrameStroke.Parent = BaseFrame
+
+local Title = Instance.new("TextLabel")
+Title.Name = "Title"
+Title.Parent = BaseFrame
+Title.BackgroundTransparency = 1
+Title.Size = UDim2.new(1, 0, 0, 35)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "⚡ ZERVXHUB ENGINE"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.TextSize = 11
+
+local Divider = Instance.new("Frame")
+Divider.Name = "Divider"
+Divider.Parent = BaseFrame
+Divider.BackgroundColor3 = Color3.fromRGB(45, 45, 55)
+Divider.BorderSizePixel = 0
+Divider.Position = UDim2.new(0.05, 0, 0, 35)
+Divider.Size = UDim2.new(0.9, 0, 0, 1)
+
+-- Touch Screen Mobile Draggable System Integration
+local dragging, dragInput, dragStart, startPos
+BaseFrame.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragging = true
+        dragStart = input.Position
+        startPos = BaseFrame.Position
+        input.Changed:Connect(function()
+            if input.UserInputState == Enum.UserInputState.End then dragging = false end
+        end)
+    end
+end)
+BaseFrame.InputChanged:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+end)
+UserInputService.InputChanged:Connect(function(input)
+    if input == dragInput and dragging then
+        local delta = input.Position - dragStart
+        BaseFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+    end
+end)
+
+-- Reusable Interface Toggle Constructor Function
+local function AddToggle(text, order, propertyName)
+    local Button = Instance.new("TextButton")
+    Button.Name = text .. "Toggle"
+    Button.Parent = BaseFrame
+    Button.BackgroundColor3 = getgenv().ZervxHub[propertyName] and Color3.fromRGB(255, 115, 0) or Color3.fromRGB(22, 22, 28)
+    Button.Position = UDim2.new(0.08, 0, 0, 45 + (order * 46))
+    Button.Size = UDim2.new(0.84, 0, 0, 36)
+    Button.Font = Enum.Font.GothamBold
+    Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
+    Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Button.TextSize = 10
+    Button.ZIndex = 12
+    
+    local ButtonCorner = Instance.new("UICorner")
+    ButtonCorner.CornerRadius = UDim.new(0, 6)
+    ButtonCorner.Parent = Button
+    
+    local ButtonStroke = Instance.new("UIStroke")
+    ButtonStroke.Thickness = 1
+    ButtonStroke.Color = Color3.fromRGB(40, 40, 50)
+    ButtonStroke.Parent = Button
+
+    Button.MouseButton1Click:Connect(function()
+        getgenv().ZervxHub[propertyName] = not getgenv().ZervxHub[propertyName]
+        Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
+        
+        local targetColor = getgenv().ZervxHub[propertyName] and Color3.fromRGB(255, 115, 0) or Color3.fromRGB(22, 22, 28)
