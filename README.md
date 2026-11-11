@@ -8,7 +8,7 @@ Cloudflare Worker + D1 key service, Discord `/freekey` integration, and a Roblox
 - D1 stores a peppered SHA-256 digest, never the plaintext key.
 - First valid Roblox use binds the key to the Roblox user ID. Reuse from a different account is rejected.
 - The Roblox client calls a `RemoteFunction`; only the Roblox server contacts the Worker. The server applies a per-player attempt limit.
-- The validator only accepts configured Roblox universe IDs. The visible UI gate is not an authorization boundary; protected game actions must also be checked by trusted server scripts.
+- The validator only accepts configured Roblox universe IDs. The allowlist is `ALLOWED_EXPERIENCE_IDS` in `wrangler.toml`, as a comma-separated list. It is empty by default, which rejects all games until the owner supplies IDs. Edit the list and redeploy the Worker to add or remove games. The visible UI gate is not an authorization boundary; protected game actions must also be checked by trusted server scripts.
 
 ## Local setup
 
@@ -23,6 +23,8 @@ Requires Node.js 20+ and a Cloudflare account for eventual hosting. No deploymen
 7. Set the `API_URL` in `ZervxHub_v1_3_KeyAuth.server.lua` to the deployed Worker URL. In Roblox Studio, enable **Allow HTTP Requests**, install the file as a Script in `ServerScriptService`, and install `ZervxHub_v1_2_Gold_Premium.client.lua` as a LocalScript in `StarterPlayerScripts`.
 
 Do not use a real secret until deployment is intentionally configured. This code does not deploy or create a Cloudflare account resource automatically.
+
+For the Discord bot's Railway container and environment variables, see [RAILWAY.md](RAILWAY.md).
 
 ## API
 
