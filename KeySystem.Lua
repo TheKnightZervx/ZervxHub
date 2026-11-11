@@ -1,35 +1,45 @@
--- [[ ZERVXHUB - SECURE LOCAL KEY SYSTEM ]] --
+-- [[ ZERVXHUB - PREMIUM SECURE KEY SYSTEM ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
+local TweenService = game:GetService("TweenService")
 
--- 🔑 هنا يمكنك وضع المفتاح الذي تريده (تستطيع تغييره من الـ GitHub في أي وقت)
+-- 🔑 Secret Key
 local MySecretKey = "KEYAUTH-R1zzYl-P5bPy4-BUPD7t-fyXtpy-V8BwKp-BSL7t4" 
 
--- بناء الواجهة فوراً في الطبقة الأمامية الفوقية لضمان ثباتها
+-- Modern ScreenGui Setup
 local KeyGui = Instance.new("ScreenGui")
-local KeyFrame = Instance.new("Frame")
-local Title = Instance.new("TextLabel")
-local TextBox = Instance.new("TextBox")
-local CheckButton = Instance.new("TextButton")
-
 KeyGui.Name = "ZervxHub_KeySystem"
 KeyGui.Parent = TargetGuiContainer
 KeyGui.ResetOnSpawn = false
 KeyGui.DisplayOrder = 999999
 KeyGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+-- Main Frame (Fancy & Modern Shape)
+local KeyFrame = Instance.new("Frame")
 KeyFrame.Name = "KeyFrame"
 KeyFrame.Parent = KeyGui
-KeyFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30)
-KeyFrame.Position = UDim2.new(0.35, 0, 0.35, 0)
-KeyFrame.Size = UDim2.new(0, 300, 0, 180)
+KeyFrame.BackgroundColor3 = Color3.fromRGB(15, 15, 20) -- Sleek Dark Accent
+KeyFrame.Position = UDim2.new(0.5, -165, 0.5, -100) -- Perfectly Centered
+KeyFrame.Size = UDim2.new(0, 330, 0, 200)
 KeyFrame.Active = true
 KeyFrame.ZIndex = 10
+KeyFrame.BorderSizePixel = 0
 
--- نظام الإزاحة اللمسية المتوافق مع الهواتف الذكية
+-- UI Styling Elements (Rounded Corners & Subtle Strokes)
+local FrameCorner = Instance.new("UICorner")
+FrameCorner.CornerRadius = UDim.new(0, 12)
+FrameCorner.Parent = KeyFrame
+
+local FrameStroke = Instance.new("UIStroke")
+FrameStroke.Thickness = 1.5
+FrameStroke.Color = Color3.fromRGB(255, 100, 0) -- Neon Orange Border
+FrameStroke.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
+FrameStroke.Parent = KeyFrame
+
+-- Smooth Mobile/PC Dragging System
 local UserInputService = game:GetService("UserInputService")
 local dragging, dragInput, dragStart, startPos
 KeyFrame.InputBegan:Connect(function(input)
@@ -52,70 +62,104 @@ UserInputService.InputChanged:Connect(function(input)
     end
 end)
 
+-- Title Banner
+local Title = Instance.new("TextLabel")
 Title.Name = "Title"
 Title.Parent = KeyFrame
-Title.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Title.Size = UDim2.new(1, 0, 0, 40)
-Title.Font = Enum.Font.SourceSansBold
-Title.Text = "  🔑 ZervxHub | Secure Access"
-Title.TextColor3 = Color3.fromRGB(255, 165, 0)
-Title.TextSize = 16
+Title.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.Font = Enum.Font.GothamBold
+Title.Text = "✨ ZERVXHUB | SECURE ACCESS"
+Title.TextColor3 = Color3.fromRGB(255, 140, 0)
+Title.TextSize = 14
 Title.ZIndex = 11
 
+local TitleCorner = Instance.new("UICorner")
+TitleCorner.CornerRadius = UDim.new(0, 12)
+TitleCorner.Parent = Title
+
+-- Fancy Input Textbox
+local TextBox = Instance.new("TextBox")
 TextBox.Name = "TextBox"
 TextBox.Parent = KeyFrame
-TextBox.BackgroundColor3 = Color3.fromRGB(20, 20, 20)
-TextBox.Position = UDim2.new(0.05, 0, 0.35, 0)
-TextBox.Size = UDim2.new(0.9, 0, 0, 35)
-TextBox.Font = Enum.Font.SourceSans
-TextBox.PlaceholderText = "Enter Access Key..."
+TextBox.BackgroundColor3 = Color3.fromRGB(10, 10, 12)
+TextBox.Position = UDim2.new(0.06, 0, 0.35, 0)
+TextBox.Size = UDim2.new(0.88, 0, 0, 38)
+TextBox.Font = Enum.Font.Gotham
+TextBox.PlaceholderText = "Enter premium access key..."
 TextBox.Text = ""
 TextBox.TextColor3 = Color3.fromRGB(255, 255, 255)
-TextBox.TextSize = 14
+TextBox.TextSize = 13
 TextBox.ZIndex = 11
 
+local TextCorner = Instance.new("UICorner")
+TextCorner.CornerRadius = UDim.new(0, 8)
+TextCorner.Parent = TextBox
+
+local TextStroke = Instance.new("UIStroke")
+TextStroke.Thickness = 1
+TextStroke.Color = Color3.fromRGB(45, 45, 55)
+TextStroke.Parent = TextBox
+
+-- Interactive Key Check Button
+local CheckButton = Instance.new("TextButton")
 CheckButton.Name = "CheckButton"
 CheckButton.Parent = KeyFrame
-CheckButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
-CheckButton.Position = UDim2.new(0.05, 0, 0.65, 0)
-CheckButton.Size = UDim2.new(0.9, 0, 0, 35)
-CheckButton.Font = Enum.Font.SourceSansBold
-CheckButton.Text = "Verify Key"
-CheckButton.TextColor3 = Color3.fromRGB(25, 25, 25)
-CheckButton.TextSize = 16
+CheckButton.BackgroundColor3 = Color3.fromRGB(255, 110, 0)
+CheckButton.Position = UDim2.new(0.06, 0, 0.65, 0)
+CheckButton.Size = UDim2.new(0.88, 0, 0, 40)
+CheckButton.Font = Enum.Font.GothamBold
+CheckButton.Text = "VERIFY KEY"
+CheckButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+CheckButton.TextSize = 13
 CheckButton.ZIndex = 11
 
--- فحص المفتاح فورياً ومحلياً لمنع أخطاء الشبكة والاتصال
+local ButtonCorner = Instance.new("UICorner")
+ButtonCorner.CornerRadius = UDim.new(0, 8)
+ButtonCorner.Parent = CheckButton
+
+-- Smooth Hover & Click Animations
+CheckButton.MouseEnter:Connect(function()
+    TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 140, 20)}):Play()
+end)
+CheckButton.MouseLeave:Connect(function()
+    TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 110, 0)}):Play()
+end)
+
+-- Validation Scripting Logic with UI Feedback
 CheckButton.MouseButton1Click:Connect(function()
-    -- تنظيف النص المكتوب ومسح أي فراغات زائدة من النسخ
-    local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1")
+    local enteredKey = string.gsub(TextBox.Text, "^%s*(.-)%s*$", "%1") --
     
     if enteredKey == "" then
-        CheckButton.Text = "Please Enter a Key!"
-        CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        CheckButton.Text = "❌ PLEASE ENTER A KEY!"
+        TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 40, 40)}):Play()
         task.wait(1.5)
-        CheckButton.Text = "Verify Key"
-        CheckButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+        CheckButton.Text = "VERIFY KEY"
+        TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 110, 0)}):Play()
         return
     end
 
-    CheckButton.Text = "Checking Key..."
-    CheckButton.BackgroundColor3 = Color3.fromRGB(200, 120, 0)
-    task.wait(0.5) -- تأخير بسيط لمحاكاة الفحص الحقيقي
+    CheckButton.Text = "⚡ CHECKING AUTHENTICATION..."
+    TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(200, 90, 0)}):Play()
+    task.wait(0.6) -- Simulated check latency
 
     if enteredKey == MySecretKey then
-        CheckButton.Text = "Access Granted! Loading..."
-        CheckButton.BackgroundColor3 = Color3.fromRGB(0, 255, 100)
+        CheckButton.Text = "✅ ACCESS GRANTED! WELCOME"
+        TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(35, 185, 95)}):Play()
         task.wait(1.2)
-        KeyGui:Destroy()
         
-        -- [تم الإصلاح] استدعاء الرابط الكامل والآمن لملف سكربتك الأساسي الحالي دون تعديله
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
+        -- Smooth Fade Out Window
+        TweenService:Create(KeyFrame, TweenInfo.new(0.4), {Size = UDim2.new(0, 0, 0, 0), Position = UDim2.new(0.5, 0, 0.5, 0)}):Play()
+        task.wait(0.4)
+        KeyGui:Destroy() --
+        
+        -- Load main hub script safely
+        loadstring(game:HttpGet("https://githubusercontent.com"))() --
     else
-        CheckButton.Text = "Error: Invalid Key!"
-        CheckButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
+        CheckButton.Text = "❌ INVALID ACCESS KEY!"
+        TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(220, 40, 40)}):Play()
         task.wait(2)
-        CheckButton.Text = "Verify Key"
-        CheckButton.BackgroundColor3 = Color3.fromRGB(255, 165, 0)
+        CheckButton.Text = "VERIFY KEY"
+        TweenService:Create(CheckButton, TweenInfo.new(0.2), {BackgroundColor3 = Color3.fromRGB(255, 110, 0)}):Play()
     end
 end)
