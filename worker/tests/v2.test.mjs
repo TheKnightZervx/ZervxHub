@@ -604,6 +604,19 @@ testCase("Discord bot credential must be configured separately from the admin to
     headers: { "x-bot-token": ADMIN_TOKEN },
   });
   assert.equal(response.status, 401);
+
+  // A shared secret must not continue to work through either admin API.
+  const adminResponse = await api.request("/v2/admin/developers", {
+    body: { discordUserId: MEMBER, displayName: "Should be denied" },
+    headers: adminHeaders,
+  });
+  assert.equal(adminResponse.status, 401);
+
+  const legacyAdminResponse = await api.request("/v1/keys/issue", {
+    body: { discordUserId: MEMBER },
+    headers: adminHeaders,
+  });
+  assert.equal(legacyAdminResponse.status, 401);
 });
 
 testCase("admin routes reject missing and wrong credentials", async () => {
