@@ -9,7 +9,8 @@
     "deploy": "wrangler deploy",
     "db:create": "wrangler d1 create zervxhub-keys",
     "db:migrate:local": "wrangler d1 execute zervxhub-keys --local --file=./schema.sql",
-    "db:migrate:remote": "wrangler d1 execute zervxhub-keys --remote --file=./schema.sql"
+    "db:migrate:remote": "wrangler d1 execute zervxhub-keys --remote --file=./schema.sql",
+    "discord:register": "node scripts/register-command.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20261111.0",
