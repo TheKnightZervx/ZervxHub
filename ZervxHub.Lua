@@ -1,25 +1,32 @@
--- [[ ZERVXHUB - ADVANCED TEKKIT HUB EDITION FIXED ]] --
+-- [[ ZERVXHUB - ADVANCED TEKKIT HUB PERSISTENT EDITION ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
+
+-- منع التكرار لضمان ثبات الأداء
+if _G.ZervxHubLoaded then return end
+_G.ZervxHubLoaded = true
+
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 
--- إعدادات الأمان المتقدمة والمحرك الذكي
-getgenv().ZervxHub = {
-    AutoFarm = false,
-    SafeMode = true,        -- تفعيل جدار حماية النمط العشوائي
-    InfiniteGas = false,
-    InfiniteBlades = false,
-    AutoEscape = true,
-    HitboxSize = 6          -- حجم ضربة الرقبة المحسّن برمجياً
-}
+-- المحافظة على الإعدادات العامة للسكربت
+if not getgenv().ZervxHub then
+    getgenv().ZervxHub = {
+        AutoFarm = false,
+        SafeMode = true,
+        InfiniteGas = false,
+        InfiniteBlades = false,
+        AutoEscape = true,
+        HitboxSize = 6
+    }
+end
 
 local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 
--- 1. إنشاء واجهة المستخدم الرئيسية
+-- 1. إنشاء واجهة المستخدم الممتازة
 local ScreenGui = Instance.new("ScreenGui")
 local MainFrame = Instance.new("Frame")
 local Title = Instance.new("TextLabel")
@@ -38,7 +45,7 @@ MainFrame.Position = UDim2.new(0.3, 0, 0.25, 0)
 MainFrame.Size = UDim2.new(0, 340, 0, 260)
 MainFrame.Active = true
 
--- نظام السحب اللمسي المتطور للشاشات
+-- نظام السحب اللمسي المطور للشاشات
 local dragging, dragInput, dragStart, startPos
 local function updateDrag(input)
     local delta = input.Position - dragStart
@@ -84,14 +91,14 @@ UIListLayout.Parent = TabContainer
 UIListLayout.SortOrder = Enum.SortOrder.LayoutOrder
 UIListLayout.Padding = UDim.new(0, 6)
 
--- 2. بناء الأيقونة العائمة الذكية لإخفاء وإظهار السكربت (Floating Icon)
+-- 2. بناء الأيقونة العائمة الدائرية في زاوية الشاشة (Floating Icon)
 local FloatingButton = Instance.new("TextButton")
 local UICorner = Instance.new("UICorner")
 
 FloatingButton.Name = "FloatingIcon"
 FloatingButton.Parent = ScreenGui
 FloatingButton.BackgroundColor3 = Color3.fromRGB(255, 140, 0)
-FloatingButton.Position = UDim2.new(0.02, 0, 0.15, 0) -- موقع في الزاوية العليا
+FloatingButton.Position = UDim2.new(0.02, 0, 0.15, 0)
 FloatingButton.Size = UDim2.new(0, 45, 0, 45)       
 FloatingButton.Font = Enum.Font.SourceSansBold
 FloatingButton.Text = "Z"
@@ -125,34 +132,33 @@ FloatingButton.InputEnded:Connect(function(input)
     end
 end)
 
--- عمل الإخفاء والإظهار عند النقر على الأيقونة
 FloatingButton.MouseButton1Click:Connect(function()
     MainFrame.Visible = not MainFrame.Visible
 end)
 
--- دالة تصنيع الأزرار
+-- دالة بناء أزرار التحكم والمحافظة على حالتها
 local function CreateToggle(text, configValue)
     local Button = Instance.new("TextButton")
     Button.Parent = TabContainer
     Button.BackgroundColor3 = Color3.fromRGB(35, 35, 35)
     Button.Size = UDim2.new(1, 0, 0, 38)
     Button.Font = Enum.Font.SourceSansBold
-    Button.Text = "   [ OFF ] " .. text
-    Button.TextColor3 = Color3.fromRGB(180, 180, 180)
-    Button.TextSize = 14
-    Button.TextXAlignment = Enum.TextXAlignment.Left
-
-    local active = false
-    Button.MouseButton1Click:Connect(function()
-        active = not active
-        getgenv().ZervxHub[configValue] = active
-        if active then
+    
+    local function updateButtonText()
+        if getgenv().ZervxHub[configValue] then
             Button.Text = "   [ ON ] " .. text
             Button.TextColor3 = Color3.fromRGB(0, 255, 120)
         else
             Button.Text = "   [ OFF ] " .. text
             Button.TextColor3 = Color3.fromRGB(180, 180, 180)
         end
+    end
+    
+    updateButtonText()
+
+    Button.MouseButton1Click:Connect(function()
+        getgenv().ZervxHub[configValue] = not getgenv().ZervxHub[configValue]
+        updateButtonText()
     end)
 end
 
@@ -160,9 +166,9 @@ CreateToggle("Tekkit Auto Farm (Safe Nape)", "AutoFarm")
 CreateToggle("Infinite Gas & Blades", "InfiniteGas")
 CreateToggle("Auto Escape Titan Grabs", "AutoEscape")
 
--- 3. خوادم إدارة الشخصية والموارد
+-- 3. حلقة فحص الموارد والهروب من المسكات (آمنة تماماً للجيم)
 task.spawn(function()
-    while task.wait(0.2) do
+    while task.wait(0.3) do
         pcall(function()
             local char = LocalPlayer.Character
             if char and char:FindFirstChild("Variables") then
@@ -181,7 +187,7 @@ task.spawn(function()
     end
 end)
 
--- 4. محرك الـ Auto Farm المطور فائق الأمان (Bypass Engine)
+-- 4. محرك الـ Auto Farm الفاخر (يتعرف على الخرائط القتالية تلقائياً)
 task.spawn(function()
     while true do
         task.wait(0.05)
@@ -192,7 +198,8 @@ task.spawn(function()
                     return
                 end
                 
-                local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies")
+                -- [تعديل الفحص] البحث الشامل عن المجلدات القتالية لضمان بدء التثبيت الفوري في الجيم
+                local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
                 if Titans then
                     for _, titan in pairs(Titans:GetChildren()) do
                         if not getgenv().ZervxHub.AutoFarm then break end
@@ -201,7 +208,6 @@ task.spawn(function()
                             local hrp = char.HumanoidRootPart
                             local nape = titan.Nape
                             
-                            -- محاكاة عشوائية لتجنب الرصد الحركي الحامي
                             local randomX = getgenv().ZervxHub.SafeMode and (math.random(-15, 15) / 10) or 0
                             local randomY = getgenv().ZervxHub.SafeMode and (math.random(-10, 20) / 10) or 0
                             local targetPos = nape.CFrame * CFrame.new(randomX, randomY, 3.4)
@@ -231,4 +237,7 @@ task.spawn(function()
     end
 end)
 
-print("[+] ZervxHub Premium Tekkit Engine Successfully Injected!")
+-- 5. [نظام الـ Auto-Execute المدمج] حظر السقوط عند التنقل بين خوادم المباراة
+local queue_on_teleport = (syn and syn.queue_on_teleport) or queue_on_teleport or (fluxus and fluxus.queue_on_teleport)
+if queue_on_teleport then
+    LocalPlayer.OnTeleport:Connect(function(State)
