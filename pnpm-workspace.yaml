@@ -1,0 +1,6 @@
+packages:
+  - bot
+
+allowBuilds:
+  esbuild: true
+  workerd: true
