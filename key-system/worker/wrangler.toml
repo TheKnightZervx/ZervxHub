@@ -1,0 +1,14 @@
+name = "zervxhub-key-api"
+main = "src/index.ts"
+compatibility_date = "2026-11-11"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "zervxhub-keys"
+database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
+
+[vars]
+KEY_TTL_HOURS = "24"
+DISCORD_APPLICATION_ID = "REPLACE_WITH_DISCORD_APPLICATION_ID"
+# Set secrets with: npx wrangler secret put DISCORD_PUBLIC_KEY
+# Set secrets with: npx wrangler secret put ROBLOX_SERVER_TOKEN
