@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - ULTIMATE MULTI-MODE FARM & RARITY AUTO-ROLLER SUITE ]] --
+-- [[ ZERVXHUB - PART 1: CORE CONFIGURATION ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -19,56 +19,53 @@ getgenv().ZervxHub = {
     -- In-Match Combat Features
     AutoFarm = false,
     SafeMode = true,
-    HitboxSize = 14.0,
+    HitboxSize = 25.0, -- Increased for perfect strike recognition
     AutoRefill = true,
     InstantKill = true,
     
     -- Lobby Customization Features
     IsRolling = false,
-    RollEpic = false,       -- If true, automatically spins past Epic families
-    RollLegendary = false,  -- If true, automatically spins past Legendary families
-    RollMythic = false      -- If true, spins past Mythics (Keep false to lock Fritz/Helos)
+    RollEpic = false,       
+    RollLegendary = false,  
+    RollMythic = false      
 }
 
--- ============================================================== --
--- 🛡️ SAFETY & NETWORK INJECTIONS (ANTI-AFK & TARGET SCANNER)
--- ============================================================== --
+-- Anti-AFK Bypasser
 pcall(function()
     local VirtualUser = game:GetService("VirtualUser")
     LocalPlayer.Idled:Connect(function()
         VirtualUser:CaptureController()
         VirtualUser:ClickButton2(Vector2.new(0, 0))
-        print("[+] Anti-AFK cycle pushed to maintain link integrity.")
     end)
 end)
-
+-- [[ ZERVXHUB - PART 2: AUTOMATION ENGINES ]] --
+-- Deep Workspace Scanner to Locate Titan Weakpoints
 local function GetClosestTitanTarget()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
-    local folders = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
-    if not folders then return nil end
-    
     local closest, shortestDistance = nil, math.huge
-    for _, titan in pairs(folders:GetChildren()) do
-        local targetPart = titan:FindFirstChild("Nape") or titan:FindFirstChild("Neck")
-        local humanoid = titan:FindFirstChildOfClass("Humanoid")
-        if targetPart and humanoid and humanoid.Health > 0 then
-            local dist = (char.HumanoidRootPart.Position - targetPart.Position).Magnitude
-            if dist < shortestDistance then
-                shortestDistance = dist
-                closest = titan
+    
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj:IsA("Model") and (obj.Name == "Titan" or obj:FindFirstChild("Nape") or string.find(string.lower(obj.Name), "titan")) then
+            local nape = obj:FindFirstChild("Nape")
+            local humanoid = obj:FindFirstChildOfClass("Humanoid")
+            
+            if nape and humanoid and humanoid.Health > 0 then
+                local dist = (char.HumanoidRootPart.Position - nape.Position).Magnitude
+                if dist < shortestDistance then
+                    shortestDistance = dist
+                    closest = obj
+                end
             end
         end
     end
     return closest
 end
 
--- ============================================================== --
--- ⚔️ COMBAT THREAD POOLS (AUTO-FARM, INSTANT 1-STRIKE KILL & REFILL)
--- ============================================================== --
+-- Combat Auto-Farm Mechanics
 task.spawn(function()
     while true do
-        task.wait(0.02) -- Precision framerate timing profile
+        task.wait(0.01)
         if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
@@ -77,17 +74,19 @@ task.spawn(function()
                 local titan = GetClosestTitanTarget()
                 if titan then
                     local hrp = char.HumanoidRootPart
-                    local nape = titan:FindFirstChild("Nape") or titan:FindFirstChild("Neck")
+                    local nape = titan:FindFirstChild("Nape")
                     local humanoid = titan:FindFirstChildOfClass("Humanoid")
                     
                     if nape and humanoid and humanoid.Health > 0 then
-                        local randomX = getgenv().ZervxHub.SafeMode and (math.random(-6, 6) / 10) or 0
-                        local randomY = getgenv().ZervxHub.SafeMode and (math.random(-3, 8) / 10) or 0
-                        local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 2.2)
+                        local randomX = getgenv().ZervxHub.SafeMode and (math.random(-4, 4) / 10) or 0
+                        local randomY = getgenv().ZervxHub.SafeMode and (math.random(-2, 5) / 10) or 0
+                        local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 1.8)
                         
                         hrp.Velocity = Vector3.new(0, 0, 0)
-                        if getgenv().ZervxHub.InstantKill then humanoid.Health = 0 end -- 1-Strike Down
+                        hrp.RotVelocity = Vector3.new(0, 0, 0)
                         hrp.CFrame = targetCFrame
+                        
+                        if getgenv().ZervxHub.InstantKill then humanoid.Health = 0 end
                         
                         if nape:IsA("Part") then
                             nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
@@ -106,27 +105,29 @@ task.spawn(function()
     end
 end)
 
+-- Auto Refill System
 task.spawn(function()
     while true do
         task.wait(0.2)
         if getgenv().ZervxHub.AutoRefill then
             pcall(function()
                 local char = LocalPlayer.Character
-                local stats = char and (char:FindFirstChild("Variables") or char:FindFirstChild("Stats")) or LocalPlayer:FindFirstChild("Stats")
-                if stats then
-                    for _, name in pairs({"Gas", "Blades", "FullRefill"}) do
-                        local val = stats:FindFirstChild(name)
-                        if val and val:IsA("ValueBase") then val.Value = 100 end
+                for _, stat in pairs(LocalPlayer:GetDescendants()) do
+                    if (stat.Name == "Gas" or stat.Name == "Blades" or stat.Name == "Durability") and stat:IsA("ValueBase") then
+                        stat.Value = 100
+                    end
+                end
+                if char then
+                    for _, stat in pairs(char:GetDescendants()) do
+                        if (stat.Name == "Gas" or stat.Name == "Blades" or stat.Name == "Durability") and stat:IsA("ValueBase") then
+                            stat.Value = 100
+                        end
                     end
                 end
             end)
         end
     end
-end)
-
--- ============================================================== --
--- 🎰 LOBBY SPIN AUTOMATION CONTROLLER (GUI SCREEN SCANNER)
--- ============================================================== --
+end)-- [[ ZERVXHUB - PART 3: OCEAN UI & AUTO-ROLLER ]] --
 local function GetCurrentRarity()
     local menu = PlayerGui:FindFirstChild("Customization") or PlayerGui:FindFirstChild("Lobby")
     if menu then
@@ -189,9 +190,6 @@ task.spawn(function()
     end
 end)
 
--- ============================================================== --
--- 🌊 ADVANCED METROPOLITAN OCEAN CONTROL PANEL UI BUILDER
--- ============================================================== --
 local function BuildZervxInterface()
     local MainGui = Instance.new("ScreenGui")
     MainGui.Name = "ZervxOceanMainHub"
@@ -229,3 +227,156 @@ local function BuildZervxInterface()
     Title.Parent = BaseFrame
     Title.BackgroundTransparency = 1
     Title.Size = UDim2.new(1, 0, 0, 35)
+    Title.Font = Enum.Font.GothamBold
+    Title.Text = "🌊 ZERVXHUB ENGINE v5"
+    Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+    Title.TextSize = 11
+    
+    local Divider = Instance.new("Frame")
+    Divider.Name = "Divider"
+    Divider.Parent = BaseFrame
+    Divider.BackgroundColor3 = Color3.fromRGB(0, 90, 220)
+    Divider.BorderSizePixel = 0
+    Divider.Position = UDim2.new(0.08, 0, 0, 35)
+    Divider.Size = UDim2.new(0.84, 0, 0, 1)
+
+    local dragging, dragInput, dragStart, startPos
+    BaseFrame.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            dragging = true
+            dragStart = input.Position
+            startPos = BaseFrame.Position
+            input.Changed:Connect(function()
+                if input.UserInputState == Enum.UserInputState.End then dragging = false end
+            end)
+        end
+    end)
+    BaseFrame.InputChanged:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then dragInput = input end
+    end)
+    UserInputService.InputChanged:Connect(function(input)
+        if input == dragInput and dragging then
+            local delta = input.Position - dragStart
+            BaseFrame.Position = UDim2.new(startPos.X.Scale, startPos.X.Offset + delta.X, startPos.Y.Scale, startPos.Y.Offset + delta.Y)
+        end
+    end)
+
+    local function AddToggle(text, order, propertyName, isRarity)
+        local Button = Instance.new("TextButton")
+        Button.Name = text .. "Toggle"
+        Button.Parent = BaseFrame
+        Button.BackgroundColor3 = getgenv().ZervxHub[propertyName] and Color3.fromRGB(0, 140, 210) or Color3.fromRGB(4, 8, 14)
+        Button.Position = UDim2.new(0.08, 0, 0, 42 + (order * 32))
+        Button.Size = UDim2.new(0.84, 0, 0, 26)
+        Button.Font = Enum.Font.GothamBold
+        
+        if isRarity then
+            Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : SKIP IT" or " : KEEP IT")
+        else
+            Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
+        end
+        Button.TextColor3 = Color3.fromRGB(255, 255, 255)
+        Button.TextSize = 8
+
+        local ButtonCorner = Instance.new("UICorner")
+        ButtonCorner.CornerRadius = UDim.new(0, 6)
+        ButtonCorner.Parent = Button
+        
+        local ButtonStroke = Instance.new("UIStroke")
+        ButtonStroke.Thickness = 1
+        ButtonStroke.Color = Color3.fromRGB(15, 35, 55)
+        ButtonStroke.Parent = Button
+
+        Button.MouseButton1Click:Connect(function()
+            getgenv().ZervxHub[propertyName] = not getgenv().ZervxHub[propertyName]
+            if isRarity then
+                Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : SKIP IT" or " : KEEP IT")
+            else
+                Button.Text = text .. (getgenv().ZervxHub[propertyName] and " : ON" or " : OFF")
+            end
+            local targetColor = getgenv().ZervxHub[propertyName] and Color3.fromRGB(0, 140, 210) or Color3.fromRGB(4, 8, 14)
+            TweenService:Create(Button, TweenInfo.new(0.15), {BackgroundColor3 = targetColor}):Play()
+        end)
+    end
+
+    AddToggle("AUTOMATED FARM", 0, "AutoFarm", false)
+    AddToggle("AUTO REFILL GAUGES", 1, "AutoRefill", false)
+    AddToggle("1-STRIKE INSTANT KILL", 2, "InstantKill", false)
+    AddToggle("SKIP ROLLED EPICS", 3, "RollEpic", true)
+    AddToggle("SKIP LEGENDARIES", 4, "RollLegendary", true)
+
+    local MasterButton = Instance.new("TextButton")
+    MasterButton.Name = "MasterButton"
+    MasterButton.Parent = BaseFrame
+    MasterButton.BackgroundColor3 = Color3.fromRGB(15, 35, 15)
+    MasterButton.Position = UDim2.new(0.08, 0, 0, 215)
+    MasterButton.Size = UDim2.new(0.84, 0, 0, 44)
+    MasterButton.Font = Enum.Font.GothamBold
+    MasterButton.Text = "▶️ START AUTO-SPIN"
+    MasterButton.TextColor3 = Color3.fromRGB(255, 255, 255)
+    MasterButton.TextSize = 10
+
+    local MasterCorner = Instance.new("UICorner")
+    MasterCorner.CornerRadius = UDim.new(0, 8)
+    MasterCorner.Parent = MasterButton
+
+    MasterButton.MouseButton1Click:Connect(function()
+        getgenv().ZervxHub.IsRolling = not getgenv().ZervxHub.IsRolling
+        if getgenv().ZervxHub.IsRolling then
+            MasterButton.Text = "🛑 STOP AUTOMATION"
+            MasterButton.BackgroundColor3 = Color3.fromRGB(120, 25, 25)
+        else
+            MasterButton.Text = "▶️ START AUTO-SPIN"
+            MasterButton.BackgroundColor3 = Color3.fromRGB(15, 35, 15)
+        end
+    end)
+
+    local IconGui = Instance.new("ScreenGui")
+    IconGui.Name = "ZervxFloatingIconGui"
+    IconGui.Parent = CoreGui
+    IconGui.ResetOnSpawn = false
+    
+    local IconButton = Instance.new("TextButton")
+    IconButton.Name = "IconButton"
+    IconButton.Parent = IconGui
+    IconButton.BackgroundColor3 = Color3.fromRGB(6, 12, 22)
+    IconButton.Position = UDim2.new(0.02, 0, 0.15, 0)
+    IconButton.Size = UDim2.new(0, 44, 0, 44)
+    IconButton.Font = Enum.Font.GothamBold
+    IconButton.Text = "🌊"
+    IconButton.TextSize = 18
+    IconButton.ZIndex = 20
+
+    local IconCorner = Instance.new("UICorner")
+    IconCorner.CornerRadius = UDim.new(1, 0)
+    IconCorner.Parent = IconButton
+
+    local IconStroke = Instance.new("UIStroke")
+    IconStroke.Thickness = 2
+    IconStroke.Color = Color3.fromRGB(0, 210, 255)
+    IconStroke.Parent = IconButton
+
+    local iconDragging, iconDragStart, iconStartPos
+    IconButton.InputBegan:Connect(function(input)
+        if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+            iconDragging = true
+            iconDragStart = input.Position
+            iconStartPos = IconButton.Position
+            input.Changed:Connect(function()
+if input.UserInputState == Enum.UserInputState.End then iconDragging = false end
+end)
+end
+end)
+IconButton.InputChanged:Connect(function(input)
+if input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch then
+if iconDragging then
+local delta = input.Position - iconDragStart
+IconButton.Position = UDim2.new(iconStartPos.X.Scale, iconStartPos.X.Offset + delta.X, iconStartPos.Y.Scale, iconStartPos.Y.Offset + delta.Y)
+end
+end
+end)
+IconButton.MouseButton1Click:Connect(function()
+MainGui.Enabled = not MainGui.Enabled
+end)
+end
+task.spawn(BuildZervxInterface)
