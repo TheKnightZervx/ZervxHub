@@ -11,14 +11,14 @@ ZervxHub is a Roblox experience tooling project with a premium black-and-gold br
 - Existing Roblox source files remain at the repository root.
 
 ## Current status
-This branch adds the first backend and product foundation. It is not production-ready until the owner configures real Roblox Universe IDs, Cloudflare D1, Worker secrets, Discord credentials, and completes the deployment checklist.
+This branch adds the first backend and product foundation. It is not production-ready until the owner verifies the Cloudflare D1 database, configures Worker secrets and Roblox Universe IDs, connects the Discord guild, and completes the deployment and live-integration checklist.
 
 ## Security model
-- Only SHA-256 hashes of license keys are stored in D1.
-- Raw keys are returned once through an ephemeral Discord reply.
-- Key issuance and revocation require the Worker admin token.
-- Authorization is decided by a trusted server/backend, never a LocalScript.
-- Validation fails closed when no Universe IDs are configured.
+- License and developer API credentials are stored as HMAC-SHA-256 hashes using a server-side pepper; raw credentials are returned only at creation/issuance.
+- Developer keys, approved games, licenses, and Discord guild integrations are tenant-scoped.
+- The Discord bot uses a dedicated BOT_API_TOKEN, not the Worker admin token.
+- Roblox authorization is decided by the Worker through a server-side script, never by a LocalScript.
+- Legacy V1 validation fails closed unless the configured Universe ID allowlist permits the experience.
 - Never commit secrets, tokens, or `.env` files.
 
 Start with [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md).
