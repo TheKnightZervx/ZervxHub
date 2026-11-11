@@ -5,8 +5,4 @@ compatibility_date = "2026-11-11"
 [[d1_databases]]
 binding = "DB"
 database_name = "zervxhub-db"
-database_id = "REPLACE_WITH_CLOUDFLARE_D1_DATABASE_ID"
-
-[vars]
-ALLOWED_UNIVERSE_IDS = ""
-CORS_ORIGIN = ""
+database_id = "2c69a04d-f4eb-4bec-a8f2-0e1edb47179d"
