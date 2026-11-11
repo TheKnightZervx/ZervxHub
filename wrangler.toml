@@ -5,8 +5,8 @@ compatibility_date = "2026-11-11"
 [[d1_databases]]
 binding = "DB"
 database_name = "zervxhub-keys"
-database_id = "REPLACE_WITH_D1_DATABASE_ID"
+database_id = "d067907f-d394-4d11-a6eb-cd2372dc977a"
 migrations_dir = "migrations"
 
 [vars]
-ALLOWED_EXPERIENCE_IDS = "REPLACE_WITH_COMMA_SEPARATED_ROBLOX_UNIVERSE_IDS"
+ALLOWED_EXPERIENCE_IDS = ""
