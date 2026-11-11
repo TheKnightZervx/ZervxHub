@@ -1,2 +1,0 @@
-# ZervxHub
-Aotr Script
