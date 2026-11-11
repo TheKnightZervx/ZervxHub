@@ -1,4 +1,4 @@
--- [[ ZervxHub - Mobile Optimized UI ]] --
+-- [[ ZervxHub - Auto Farm & Mobile Edition ]] --
 
 local Players = game:GetService("Players")
 local CoreGui = game:GetService("CoreGui")
@@ -16,17 +16,9 @@ end)
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "ZervxMobileHub"
 ScreenGui.ResetOnSpawn = false
--- Fallback to PlayerGui if CoreGui is restricted by the executor
-if syn and syn.protect_gui then
-    syn.protect_gui(ScreenGui)
-    ScreenGui.Parent = CoreGui
-else
-    pcall(function()
-        ScreenGui.Parent = CoreGui
-    end)
-    if not ScreenGui.Parent then
-        ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
-    end
+pcall(function() ScreenGui.Parent = CoreGui end)
+if not ScreenGui.Parent then
+    ScreenGui.Parent = LocalPlayer:WaitForChild("PlayerGui")
 end
 
 -- Main Frame
@@ -35,8 +27,8 @@ MainFrame.Name = "MainFrame"
 MainFrame.Parent = ScreenGui
 MainFrame.BackgroundColor3 = Color3.fromRGB(20, 20, 25)
 MainFrame.BorderSizePixel = 0
-MainFrame.Position = UDim2.new(0.5, -175, 0.5, -125)
-MainFrame.Size = UDim2.new(0, 350, 0, 240)
+MainFrame.Position = UDim2.new(0.5, -175, 0.5, -140)
+MainFrame.Size = UDim2.new(0, 350, 0, 280)
 MainFrame.Active = true
 MainFrame.Draggable = true
 
@@ -50,7 +42,7 @@ Title.Parent = MainFrame
 Title.BackgroundColor3 = Color3.fromRGB(30, 30, 40)
 Title.Size = UDim2.new(1, 0, 0, 40)
 Title.Font = Enum.Font.GothamBold
-Title.Text = "  ZervxHub | Mobile Menu"
+Title.Text = "  ZervxHub | Auto Farm Edition"
 Title.TextColor3 = Color3.fromRGB(255, 255, 255)
 Title.TextSize = 14
 Title.TextXAlignment = Enum.TextXAlignment.Left
@@ -77,11 +69,11 @@ end)
 
 -- Function to make toggles easily
 local function MakeToggle(name, yPos, callback)
-    ummers = Instance.new("TextButton")
+    local ummers = Instance.new("TextButton")
     ummers.Parent = MainFrame
     ummers.BackgroundColor3 = Color3.fromRGB(35, 35, 45)
     ummers.Position = UDim2.new(0, 15, 0, yPos)
-    ummers.Size = UDim2.new(0, 320, 0, 38)
+    ummers.Size = UDim2.new(0, 320, 0, 36)
     ummers.Font = Enum.Font.GothamSemibold
     ummers.Text = "  " .. name .. ": [ OFF ]"
     ummers.TextColor3 = Color3.fromRGB(200, 200, 200)
@@ -104,22 +96,55 @@ local function MakeToggle(name, yPos, callback)
 end
 
 -- Features Setup
-MakeToggle("WalkSpeed (50)", 55, function(state)
+MakeToggle("Auto Farm / Raid", 50, function(state)
+    _G.AutoFarm = state
+end)
+
+MakeToggle("WalkSpeed (50)", 92, function(state)
     local char = LocalPlayer.Character
     if char and char:FindFirstChildOfClass("Humanoid") then
         char:FindFirstChildOfClass("Humanoid").WalkSpeed = state and 50 or 16
     end
 end)
 
-MakeToggle("Infinite Jump", 100, function(state)
+MakeToggle("Infinite Jump", 134, function(state)
     _G.InfJump = state
 end)
 
-MakeToggle("Noclip Walls", 145, function(state)
+MakeToggle("Noclip Walls", 176, function(state)
     _G.Noclip = state
 end)
 
--- Logic Loops
+MakeToggle("Godmode / Bypass", 218, function(state)
+    _G.Godmode = state
+end)
+
+-- Auto Farm Loop (Targets workspace/enemies dynamically)
+task.spawn(function()
+    while true do
+        task.wait(0.1)
+        if _G.AutoFarm then
+            pcall(function()
+                local char = LocalPlayer.Character
+                if char and char:FindFirstChild("HumanoidRootPart") then
+                    -- Searches workspace for common enemy folders or targets
+                    for _, mob in ipairs(workspace:GetDescendants()) do
+                        if mob:IsA("Model") and (mob:FindFirstChild("Humanoid") or mob:FindFirstChild("Health")) and mob ~= char then
+                            local hrp = mob:FindFirstChild("HumanoidRootPart") or mob:FindFirstChild("Head")
+                            if hrp then
+                                -- Teleports slightly above/behind enemy to simulate auto-farm attack loop
+                                char.HumanoidRootPart.CFrame = hrp.CFrame * CFrame.new(0, 0, 3)
+                                break
+                            end
+                        end
+                    end
+                end
+            end)
+        end
+    end
+end)
+
+-- Infinite Jump Logic
 UserInputService.JumpRequest:Connect(function()
     if _G.InfJump then
         local char = LocalPlayer.Character
@@ -129,6 +154,7 @@ UserInputService.JumpRequest:Connect(function()
     end
 end)
 
+-- Noclip Logic
 RunService.Stepped:Connect(function()
     if _G.Noclip then
         local char = LocalPlayer.Character
@@ -142,4 +168,4 @@ RunService.Stepped:Connect(function()
     end
 end)
 
-print("ZervxHub Loaded Successfully!")
+print("ZervxHub AutoFarm Loaded!")
