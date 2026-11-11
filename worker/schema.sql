@@ -14,3 +14,5 @@ CREATE TABLE IF NOT EXISTS keys (
 CREATE INDEX IF NOT EXISTS idx_keys_discord_status
   ON keys (discord_user_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_keys_expiry ON keys (status, expires_at);
+CREATE INDEX IF NOT EXISTS idx_keys_discord_created
+  ON keys (discord_user_id, created_at DESC);
