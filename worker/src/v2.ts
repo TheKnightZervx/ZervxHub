@@ -121,7 +121,7 @@ async function parseJsonBody(request: Request): Promise<
       if (done) break;
       totalBytes += value.byteLength;
       if (totalBytes > MAX_REQUEST_BODY_BYTES) {
-        await reader.cancel();
+        await reader.cancel().catch(() => {});
         return { error: "too_large" };
       }
       chunks.push(value);
