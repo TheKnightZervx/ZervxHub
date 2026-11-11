@@ -7,11 +7,11 @@ local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
 local CoreGui = game:GetService("CoreGui") or TargetGuiContainer
 local TweenService = game:GetService("TweenService")
 
--- 🧹 DESTRUCTIVE CLEANUP: FORCE-DELETE ALL PREVIOUS COPIES FROM PLAYERGUI & COREGUI
+-- 🧹 DESTRUCTIVE CLEANUP: FIXED FIXED SYNTAX FOR ANTI-DUPLICATION SWEEP
 local systemName = "ZervxHub_KeySystem"
 for _, container in pairs({TargetGuiContainer, CoreGui}) do
     for _, child in pairs(container:GetChildren()) do
-        if child.Name == systemName or child: some "KeySystem" then
+        if child.Name == systemName or string.find(child.Name, "KeySystem") then
             pcall(function() child:Destroy() end)
         end
     end
