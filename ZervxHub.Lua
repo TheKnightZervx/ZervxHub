@@ -1,4 +1,4 @@
--- [[ ZERVXHUB - DELTA MOBILE PREMIUM ENGINE ]] --
+-- [[ ZERVXHUB - ULTIMATE TEKKIT ENGINE FOR MOBILE ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
@@ -6,84 +6,87 @@ local LocalPlayer = Players.LocalPlayer
 local TweenService = game:GetService("TweenService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
--- Delta Safe-Configuration Environment
-local ZervxConfig = {
-    AutoFarm = true,         
-    SafeMode = true,        -- Enabled by default to prevent Delta app crashes
-    HitboxSize = 9.5,       -- Scaled down slightly to prevent physics stuttering
-    InfiniteGas = true,      
-    FarmSpeed = 150,        -- Balanced speed for optimized mobile injection
-    InstantKill = true       
+-- تفعيل المتغيرات الأساسية للمحرك الذكي
+getgenv().ZervxHub = {
+    AutoFarm = true,       
+    SafeMode = true,       
+    HitboxSize = 6.5,      
+    InfiniteGas = true     
 }
 
-local function GetClosestTarget()
+-- التابع المضاف لجلب أقرب عملاق بدلاً من تكرار الكل معاً لمنع تعليق اللعبة
+local function GetClosestTitan()
     local char = LocalPlayer.Character
     if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
     
-    local targetFolder = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
-    if not targetFolder then return nil end
+    local Titans = workspace:FindFirstChild("Titans") or workspace:FindFirstChild("Enemies") or workspace:FindFirstChild("TitanFolder")
+    if not Titans then return nil end
     
-    local closestTitan = nil
+    local closest = nil
     local shortestDistance = math.huge
     
-    for _, titan in pairs(targetFolder:GetChildren()) do
+    for _, titan in pairs(Titans:GetChildren()) do
         if titan:FindFirstChild("Nape") and titan:FindFirstChild("Humanoid") and titan.Humanoid.Health > 0 then
-            local distance = (char.HumanoidRootPart.Position - titan.Nape.Position).Magnitude
-            if distance < shortestDistance then
-                shortestDistance = distance
-                closestTitan = titan
+            local dist = (char.HumanoidRootPart.Position - titan.Nape.Position).Magnitude
+            if dist < shortestDistance then
+                shortestDistance = dist
+                closest = titan
             end
         end
     end
-    return closestTitan
+    return closest
 end
 
--- Delta Stable Core Farm Loop
+-- محرك الـ Auto-Farm الاحترافي المخفي
 task.spawn(function()
     while true do
-        task.wait(0.1) -- Fixed execution delay to stop Delta from freezing
-        if ZervxConfig.AutoFarm then
+        task.wait(0.1) -- مهلة آمنة تمنع كراش الدلتا (Delta Engine Safe-guard)
+        if getgenv().ZervxHub.AutoFarm then
             pcall(function()
                 local char = LocalPlayer.Character
                 if not char or not char:FindFirstChild("HumanoidRootPart") or (char:FindFirstChild("Humanoid") and char.Humanoid.Health <= 0) then
                     return
                 end
                 
-                local hrp = char.HumanoidRootPart
-                local target = GetClosestTarget()
-                
-                if target and target:FindFirstChild("Nape") then
-                    local nape = target.Nape
+                local titan = GetClosestTitan()
+                if titan then
+                    local hrp = char.HumanoidRootPart
+                    local nape = titan.Nape
                     
-                    -- Delta Anti-Rubberband Positioning
-                    local offset = ZervxConfig.SafeMode and Vector3.new(math.random(-1, 1), math.random(-1, 1), 2.2) or Vector3.new(0, 0, 1.5)
-                    local targetCFrame = nape.CFrame * CFrame.new(offset)
+                    -- التموضع العشوائي الذكي
+                    local randomX = getgenv().ZervxHub.SafeMode and (math.random(-12, 12) / 10) or 0
+                    local randomY = getgenv().ZervxHub.SafeMode and (math.random(-8, 15) / 10) or 0
+                    local targetCFrame = nape.CFrame * CFrame.new(randomX, randomY, 3.2)
                     
-                    if target.Humanoid.Health > 0 and (hrp.Position - targetCFrame.Position).Magnitude > 3 then
-                        local travelDistance = (hrp.Position - targetCFrame.Position).Magnitude
-                        
-                        -- Kill physics forces causing mobile crashes
+                    -- نظام السرعة الديناميكية المتغيرة
+                    local distance = (hrp.Position - targetCFrame.Position).Magnitude
+                    local speed = getgenv().ZervxHub.SafeMode and math.random(115, 138) or 175
+                    local duration = distance / speed
+                    
+                    if hrp and hrp.Parent and titan.Humanoid.Health > 0 then
+                        -- إبطال قوى الجاذبية لمنع الارتداد على الموبايل
                         hrp.Velocity = Vector3.new(0, 0, 0)
                         
-                        local tween = TweenService:Create(hrp, TweenInfo.new(travelDistance / ZervxConfig.FarmSpeed, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+                        local tween = TweenService:Create(hrp, TweenInfo.new(duration, Enum.EasingStyle.QuadOut), {CFrame = targetCFrame})
                         tween:Play()
-                        tween.Completed:Wait()
-                    end
-                    
-                    -- Execution Sync
-                    if target.Humanoid.Health > 0 and (hrp.Position - nape.Position).Magnitude <= 8 then
-                        if nape:IsA("Part") then
-                            nape.Size = Vector3.new(ZervxConfig.HitboxSize, ZervxConfig.HitboxSize, ZervxConfig.HitboxSize)
+                        tween.Completed:Wait() 
+                        
+                        -- تصحيح مشكلة فحص حجم الهيت بوكس (تغيير الخاصية مباشرة بدلاً من البحث عنها كإبن)
+                        if nape:IsA("Part") and titan.Humanoid.Health > 0 then
+                            nape.Size = Vector3.new(getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize, getgenv().ZervxHub.HitboxSize)
                             nape.CanCollide = false
                         end
                         
+                        -- تفعيل السلاح الممسوك تلقائياً
                         local tool = char:FindFirstChildOfClass("Tool") or LocalPlayer.Backpack:FindFirstChildOfClass("Tool")
-                        if tool then
-                            if tool.Parent ~= char then 
-                                tool.Parent = char 
+                        if tool then 
+                            if tool.Parent ~= char then
+                                tool.Parent = char
                             end
-                            tool:Activate()
+                            tool:Activate() 
                         end
+                        
+                        task.wait(getgenv().ZervxHub.SafeMode and (math.random(2, 4) / 10) or 0.1)
                     end
                 end
             end)
@@ -91,28 +94,20 @@ task.spawn(function()
     end
 end)
 
--- Delta Continuous Stats Modifier
+-- خادم الموارد المستمرة (الغاز والشفرات)
 task.spawn(function()
     while true do
         task.wait(0.5)
-        if ZervxConfig.InfiniteGas then
+        if getgenv().ZervxHub.InfiniteGas then
             pcall(function()
                 local char = LocalPlayer.Character
-                if char then
-                    local vars = char:FindFirstChild("Variables") or char:FindFirstChild("Stats") or char:FindFirstChild("RigInformation")
-                    if vars then
-                        for _, val in pairs(vars:GetChildren()) do
-                            if val:IsA("NumberValue") or val:IsA("IntValue") then
-                                if val.Name:lower():find("gas") or val.Name:lower():find("blade") then
-                                    val.Value = 100
-                                end
-                            end
-                        end
-                    end
+                if char and char:FindFirstChild("Variables") then
+                    local vars = char.Variables
+                    if vars:FindFirstChild("Gas") then vars.Gas.Value = 100 end
                 end
             end)
         end
     end
 end)
 
-print("[+] ZervxHub Premium Running Cleanly on Delta Mobile!")
+print("[+] ZervxHub Ultimate Farm Engine Activated & Patched!")
