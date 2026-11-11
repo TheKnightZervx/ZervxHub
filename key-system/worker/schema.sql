@@ -15,3 +15,6 @@ CREATE TABLE IF NOT EXISTS keys (
 CREATE INDEX IF NOT EXISTS idx_keys_discord_user ON keys(discord_user_id);
 CREATE INDEX IF NOT EXISTS idx_keys_expiry ON keys(expires_at);
 CREATE INDEX IF NOT EXISTS idx_keys_bound_user ON keys(bound_roblox_user_id);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_one_active_key_per_discord_user
+  ON keys(discord_user_id) WHERE status = 'active';
