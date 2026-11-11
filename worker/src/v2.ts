@@ -271,6 +271,42 @@ export async function handleV2(
     return respond({ revoked: result.meta.changes > 0 }, 200, origin);
   }
 
+  if (url.pathname === "/v2/admin/developer-keys/rotate") {
+    const denied = await requireAdmin(request, env, origin);
+    if (denied) return denied;
+
+    const developerId =
+      typeof data.developerId === "string" ? data.developerId.trim() : "";
+    if (!developerId || developerId.length > 80) {
+      return respond({ error: "Invalid developer ID" }, 400, origin);
+    }
+
+    const developer = await env.DB.prepare(
+      "SELECT id FROM developers WHERE id = ? AND status = 'active'"
+    ).bind(developerId).first<{ id: string }>();
+    if (!developer) return respond({ error: "Active developer not found" }, 404, origin);
+
+    const apiKey = makeApiKey();
+    const keyHash = await hashCredential(apiKey, env.KEY_PEPPER);
+    const now = Math.floor(Date.now() / 1000);
+
+    await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE developer_api_keys SET revoked_at = ? WHERE developer_id = ? AND revoked_at IS NULL"
+      ).bind(now, developerId),
+      env.DB.prepare(
+        "INSERT INTO developer_api_keys (key_hash, developer_id, created_at) VALUES (?, ?, ?)"
+      ).bind(keyHash, developerId, now),
+    ]);
+
+    return respond({
+      rotated: true,
+      developerId,
+      apiKey,
+      warning: "The previous developer API keys have been revoked. Save this new key now; it cannot be displayed again."
+    }, 201, origin);
+  }
+
   if (url.pathname === "/v2/admin/developers/status") {
     const denied = await requireAdmin(request, env, origin);
     if (denied) return denied;
