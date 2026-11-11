@@ -39,7 +39,7 @@ function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
   return copy.buffer;
 }
 
-async function verifyDiscordRequest(request: Request, body: string, publicKey: string): Promise<boolean> {
+export async function verifyDiscordRequest(request: Request, body: string, publicKey: string): Promise<boolean> {
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
   if (!signature || !timestamp || !/^\d{10,}$/.test(timestamp)) return false;
@@ -57,7 +57,7 @@ async function sha256(value: string): Promise<string> {
   return hex(new Uint8Array(await crypto.subtle.digest("SHA-256", encoder.encode(value))));
 }
 
-function makeKey(): string {
+export function makeKey(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(20));
   const raw = hex(bytes).toUpperCase();
   return `ZHX-${raw.slice(0, 5)}-${raw.slice(5, 10)}-${raw.slice(10, 15)}-${raw.slice(15)}`;
