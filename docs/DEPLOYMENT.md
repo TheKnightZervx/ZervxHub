@@ -14,7 +14,7 @@ Use **Node.js 22.12 or newer**. The Worker CI schema tests use Node's built-in `
 5. Set strong secrets using Wrangler:
    - `npx wrangler secret put ADMIN_TOKEN` (administrative API operations)
    - `npx wrangler secret put KEY_PEPPER` (high-entropy secret for HMAC-SHA-256 credential hashing)
-   - `npx wrangler secret put BOT_API_TOKEN` (private service credential used only by the Discord bot)
+   - `npx wrangler secret put BOT_API_TOKEN` (private service credential used only by the Discord bot; it must be a different random value from `ADMIN_TOKEN`)
 6. Add your real comma-separated Roblox Universe IDs to `ALLOWED_UNIVERSE_IDS` in the Worker's Variables settings. Do not leave it empty; legacy V1 issuance and validation intentionally fail closed without this allowlist.
 7. From `worker/`, deploy with `npm run deploy`.
 8. Check `GET /v1/health` on the deployed Worker URL.
