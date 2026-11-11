@@ -59,18 +59,26 @@ function makeKey(): string {
 
 async function issueKey(env: Env, discordUserId: string, username: string): Promise<{ key?: string; error?: string }> {
   const now = Math.floor(Date.now() / 1000);
-  const existing = await env.DB.prepare(
-    "SELECT id FROM keys WHERE discord_user_id = ? AND expires_at > ? AND status = 'active' LIMIT 1"
-  ).bind(discordUserId, now).first<{ id: number }>();
-  if (existing) return { error: "You already have an active Free Key. Check your previous DM or wait for it to expire." };
-
   const key = makeKey();
   const keyHash = await sha256(key);
   const ttlHours = Math.min(168, Math.max(1, Number(env.KEY_TTL_HOURS || 24)));
   const expiresAt = now + ttlHours * 3600;
-  await env.DB.prepare(
-    "INSERT INTO keys (key_hash, discord_user_id, discord_username, status, created_at, expires_at) VALUES (?, ?, ?, 'active', ?, ?)"
-  ).bind(keyHash, discordUserId, username.slice(0, 80), now, expiresAt).run();
+  try {
+    // D1 batch is transactional. The partial unique index prevents concurrent
+    // /getkey requests from issuing two active keys for the same Discord user.
+    await env.DB.batch([
+      env.DB.prepare("UPDATE keys SET status = 'revoked' WHERE discord_user_id = ? AND status = 'active' AND expires_at <= ?")
+        .bind(discordUserId, now),
+      env.DB.prepare(
+        "INSERT INTO keys (key_hash, discord_user_id, discord_username, status, created_at, expires_at) VALUES (?, ?, ?, 'active', ?, ?)"
+      ).bind(keyHash, discordUserId, username.slice(0, 80), now, expiresAt),
+    ]);
+  } catch (error) {
+    if (String(error).toLowerCase().includes("unique")) {
+      return { error: "You already have an active Free Key. Check your previous key or wait for it to expire." };
+    }
+    throw error;
+  }
   return { key };
 }
 
@@ -81,6 +89,7 @@ async function discordInteraction(request: Request, env: Env): Promise<Response>
   try { interaction = JSON.parse(body) as DiscordInteraction; } catch { return json({ error: "Invalid JSON" }, 400); }
 
   if (interaction.type === 1) return json({ type: 1 }); // Discord PING
+  if (interaction.application_id !== env.DISCORD_APPLICATION_ID) return json({ error: "Unknown Discord application" }, 401);
   if (interaction.type !== 2 || interaction.data?.name !== "getkey") return json({ error: "Unsupported interaction" }, 400);
 
   const user = interaction.member?.user ?? interaction.user;
