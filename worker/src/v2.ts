@@ -46,6 +46,7 @@ async function requireAdmin(request: Request, env: V2Env, origin: string) {
 }
 
 async function isAdmin(request: Request, env: V2Env) {
+  if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN === env.BOT_API_TOKEN) return false;
   const supplied = request.headers.get("x-admin-token") ?? "";
   return timingSafeEqual(supplied, env.ADMIN_TOKEN);
 }
