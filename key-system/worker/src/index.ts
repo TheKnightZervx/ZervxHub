@@ -33,15 +33,21 @@ function fromHex(value: string): Uint8Array {
   return out;
 }
 
+function toArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength);
+  copy.set(bytes);
+  return copy.buffer;
+}
+
 async function verifyDiscordRequest(request: Request, body: string, publicKey: string): Promise<boolean> {
   const signature = request.headers.get("x-signature-ed25519");
   const timestamp = request.headers.get("x-signature-timestamp");
   if (!signature || !timestamp || !/^\d{10,}$/.test(timestamp)) return false;
   if (Math.abs(Date.now() / 1000 - Number(timestamp)) > 300) return false;
   try {
-    const key = await crypto.subtle.importKey("raw", fromHex(publicKey), { name: "Ed25519" }, false, ["verify"]);
+    const key = await crypto.subtle.importKey("raw", toArrayBuffer(fromHex(publicKey)), { name: "Ed25519" }, false, ["verify"]);
     const sig = Uint8Array.from(signature.match(/.{2}/g) ?? [], (v) => parseInt(v, 16));
-    return await crypto.subtle.verify("Ed25519", key, sig, encoder.encode(timestamp + body));
+    return await crypto.subtle.verify("Ed25519", key, toArrayBuffer(sig), toArrayBuffer(encoder.encode(timestamp + body)));
   } catch {
     return false;
   }
