@@ -1,14 +1,20 @@
--- [[ ZERVXHUB - FORCE REFRESH OCEAN KEY SYSTEM ]] --
+-- [[ ZERVXHUB - ANTI-DUPLICATION OCEAN KEY SYSTEM ]] --
 if not game:IsLoaded() then game.Loaded:Wait() end
 
 local Players = game:GetService("Players")
 local LocalPlayer = Players.LocalPlayer
 local TargetGuiContainer = LocalPlayer:WaitForChild("PlayerGui")
+local CoreGui = game:GetService("CoreGui") or TargetGuiContainer
 local TweenService = game:GetService("TweenService")
 
--- 🧹 FORCE DELETE THE OLD SYSTEM IF IT EXISTS
-if TargetGuiContainer:FindFirstChild("ZervxHub_KeySystem") then
-    TargetGuiContainer:FindFirstChild("ZervxHub_KeySystem"):Destroy()
+-- 🧹 DESTRUCTIVE CLEANUP: FORCE-DELETE ALL PREVIOUS COPIES FROM PLAYERGUI & COREGUI
+local systemName = "ZervxHub_KeySystem"
+for _, container in pairs({TargetGuiContainer, CoreGui}) do
+    for _, child in pairs(container:GetChildren()) do
+        if child.Name == systemName or child: some "KeySystem" then
+            pcall(function() child:Destroy() end)
+        end
+    end
 end
 
 -- 🔑 Secret Key
@@ -16,7 +22,7 @@ local MySecretKey = "KEYAUTH-R1zzYl-P5bPy4-BUPD7t-fyXtpy-V8BwKp-BSL7t4"
 
 -- Premium ScreenGui Setup
 local KeyGui = Instance.new("ScreenGui")
-KeyGui.Name = "ZervxHub_KeySystem"
+KeyGui.Name = systemName
 KeyGui.Parent = TargetGuiContainer
 KeyGui.ResetOnSpawn = false
 KeyGui.DisplayOrder = 999999
@@ -202,7 +208,7 @@ CheckButton.MouseButton1Click:Connect(function()
         task.wait(0.3)
         KeyGui:Destroy()
         
-        loadstring(game:HttpGet("https://raw.githubusercontent.com/TheKnightZervx/ZervxHub/refs/heads/main/ZervxHub.Lua"))()
+        loadstring(game:HttpGet("https://githubusercontent.com"))()
     else
         CheckButton.Text = "⚠️ CORRUPTED WAVE SEQUENCE"
         CheckButton.BackgroundColor3 = Color3.fromRGB(210, 40, 40)
