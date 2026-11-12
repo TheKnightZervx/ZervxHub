@@ -47,6 +47,20 @@ class MobileApiClient(context: Context) {
         return response.getJSONObject("user").toUser()
     }
 
+    suspend fun refreshSession(): Boolean {
+        if (tokens.read().isNullOrBlank()) return false
+        return try {
+            val response = call("POST", "v2/mobile/auth/session/refresh", JSONObject())
+            val token = response.optString("token")
+            if (token.isBlank()) throw IOException("Session refresh returned no token.")
+            tokens.save(token)
+            true
+        } catch (_: Exception) {
+            tokens.clear()
+            false
+        }
+    }
+
     suspend fun account(): MobileUser = call("GET", "v2/mobile/account").getJSONObject("user").toUser()
 
     suspend fun logout() {
