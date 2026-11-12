@@ -68,4 +68,4 @@ jobs:
           grep -q 'navigator.clipboard.writeText' website/snippets.js
       - name: Ensure snippets are never executed
         run: |
-          ! grep -nE '\\beval[[:space:]]*\\(|new Function' website/snippets.js
+          ! grep -nE 'eval[[:space:]]*\\(|new Function' website/snippets.js
