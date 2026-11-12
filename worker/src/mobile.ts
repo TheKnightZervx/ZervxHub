@@ -103,8 +103,8 @@ async function authenticate(request: Request, env: MobileEnv) {
      WHERE s.token_hash = ? AND s.revoked_at IS NULL AND s.expires_at > ? AND u.status = 'active'`
   ).bind(tokenHash, now).first<{ id: string; email: string; displayName: string }>();
   if (session) {
-    await env.DB.prepare("UPDATE mobile_sessions SET last_seen_at = ? WHERE token_hash = ? AND revoked_at IS NULL")
-      .bind(now, tokenHash).run();
+    await env.DB.prepare("UPDATE mobile_sessions SET last_seen_at = ? WHERE token_hash = ? AND revoked_at IS NULL AND last_seen_at < ?")
+      .bind(now, tokenHash, now - 300).run();
   }
   return session ? { ...session, tokenHash } : null;
 }
