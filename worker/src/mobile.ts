@@ -148,6 +148,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       return json({ error: "Too many requests. Try again later." }, 429);
     }
     const now = nowSeconds();
+    await env.DB.prepare("DELETE FROM mobile_email_challenges WHERE expires_at <= ? OR consumed_at IS NOT NULL").bind(now).run();
     const recent = await env.DB.prepare(
       "SELECT id FROM mobile_email_challenges WHERE email = ? AND created_at > ? AND consumed_at IS NULL LIMIT 1"
     ).bind(email, now - 60).first();
@@ -218,6 +219,35 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     return json({ authenticated: true, token, tokenType: "Bearer", expiresAt: now + SESSION_TTL, user: { id: user.id, email: user.email, displayName: user.displayName } }, 200);
   }
 
+
+  if (method === "POST" && path === "/v2/mobile/auth/session/refresh") {
+    const user = await authenticate(request, env);
+    if (!user) return json({ error: "Authentication required" }, 401);
+    const now = nowSeconds();
+    const token = randomHex(32);
+    const tokenHash = await hmac(token, env.KEY_PEPPER);
+    const results = await env.DB.batch([
+      env.DB.prepare("UPDATE mobile_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL")
+        .bind(now, user.tokenHash),
+      env.DB.prepare(
+        "INSERT INTO mobile_sessions(token_hash, user_id, created_at, expires_at, last_seen_at) SELECT ?, user_id, ?, ?, ? FROM mobile_sessions WHERE token_hash = ? AND revoked_at = ?"
+      ).bind(tokenHash, now, now + SESSION_TTL, now, user.tokenHash, now)
+    ]);
+    if (results[0]?.meta.changes !== 1 || results[1]?.meta.changes !== 1) {
+      return json({ error: "Session expired. Sign in again." }, 401);
+    }
+    return json({ token, tokenType: "Bearer", expiresAt: now + SESSION_TTL });
+  }
+
+  if (method === "POST" && path === "/v2/mobile/auth/session/logout-all") {
+    const user = await authenticate(request, env);
+    if (!user) return json({ error: "Authentication required" }, 401);
+    const result = await env.DB.prepare(
+      "UPDATE mobile_sessions SET revoked_at = ? WHERE user_id = ? AND revoked_at IS NULL"
+    ).bind(nowSeconds(), user.id).run();
+    return json({ loggedOut: true, revokedSessions: result.meta.changes });
+  }
+
   if (method === "POST" && path === "/v2/mobile/auth/session/logout") {
     const user = await authenticate(request, env);
     if (!user) return json({ error: "Authentication required" }, 401);
@@ -235,7 +265,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
   if (method === "GET" && path === "/v2/mobile/subscription") {
     const user = await authenticate(request, env);
     if (!user) return json({ error: "Authentication required" }, 401);
-    return json({ plan: "free", status: "active", billingEnabled: false, checkoutEnabled: false, message: "Mobile subscriptions are not yet linked to an approved billing provider." });
+    return json({ subscription: null, plans: [], billingEnabled: false, checkoutEnabled: false, message: "No mobile subscription record is connected yet. Checkout remains disabled." });
   }
 
   if (path.startsWith("/v2/mobile/chat/")) {
