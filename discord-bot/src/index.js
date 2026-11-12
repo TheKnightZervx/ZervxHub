@@ -10,7 +10,7 @@ import { filterGameChoices, guildIdsFromEnv, issueReply, revokeReply } from "./l
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const apiUrl = process.env.ZERVXHUB_API_URL?.replace(/\/$/, "");
-const botApiToken = process.env.ZERVXHUB_BOT_TOKEN || process.env.ZERVXHUB_ADMIN_TOKEN;
+const botApiToken = process.env.ZERVXHUB_BOT_TOKEN;
 const guildIds = guildIdsFromEnv(process.env.DISCORD_GUILD_ID, process.env.DISCORD_GUILD_IDS);
 
 if (!token || !clientId || !apiUrl || !botApiToken) {
