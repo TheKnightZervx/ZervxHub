@@ -147,9 +147,10 @@ test("dashboard migration preserves existing rows and backfills public identifie
   ).run("existing-api-hash", "existing-developer", 11);
   db.prepare(
     `INSERT INTO keys
-       (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids, developer_id)
-     VALUES (?, ?, 'active', ?, ?, ?, ?)`
-  ).run("existing-license-hash", "222222222222222", 12, 100, "12345", "existing-developer");
+       (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids,
+        last_roblox_user_id, developer_id)
+     VALUES (?, ?, 'active', ?, ?, ?, ?, ?)`
+  ).run("existing-license-hash", "222222222222222", 12, 100, "12345", "987654321", "existing-developer");
 
   db.exec(await readFile(fileURLToPath(migrationUrl("0003_dashboard_accounts_and_subscriptions.sql")), "utf8"));
   db.exec(await readFile(fileURLToPath(migrationUrl("0004_license_account_binding.sql")), "utf8"));
@@ -157,7 +158,7 @@ test("dashboard migration preserves existing rows and backfills public identifie
     "SELECT developer_id, public_id FROM developer_api_keys WHERE key_hash = ?"
   ).get("existing-api-hash");
   const license = db.prepare(
-    "SELECT developer_id, public_id, validation_count, status, bound_roblox_user_id FROM keys WHERE key_hash = ?"
+    "SELECT developer_id, public_id, validation_count, status, last_roblox_user_id, bound_roblox_user_id FROM keys WHERE key_hash = ?"
   ).get("existing-license-hash");
   assert.equal(apiKey.developer_id, "existing-developer");
   assert.match(apiKey.public_id, /^[a-f0-9]{32}$/);
@@ -165,6 +166,7 @@ test("dashboard migration preserves existing rows and backfills public identifie
   assert.match(license.public_id, /^[a-f0-9]{32}$/);
   assert.equal(license.validation_count, 0);
   assert.equal(license.status, "active");
-  assert.equal(license.bound_roblox_user_id, null);
+  assert.equal(license.last_roblox_user_id, "987654321");
+  assert.equal(license.bound_roblox_user_id, "987654321");
   db.close();
 });
