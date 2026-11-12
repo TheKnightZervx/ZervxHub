@@ -88,3 +88,11 @@ gradle assembleDebug -PzervxhubApiBaseUrl=https://YOUR-VERIFIED-WORKER-HOST
 ```
 
 The value is injected into the debug/release BuildConfig at build time; release builds reject plain HTTP. Do not commit a real production host or secrets. A blank value leaves the client disconnected and displays a configuration message.
+
+Private media/call route placeholders are scoped to an authenticated direct or group conversation:
+- `POST /v2/mobile/chat/conversations/:id/attachments`
+- `POST /v2/mobile/chat/conversations/:id/voice-messages`
+- `POST /v2/mobile/chat/conversations/:id/calls`
+- `POST /v2/mobile/chat/conversations/:id/signaling`
+
+They verify current membership and then return 503 while storage/relay infrastructure remains unconfigured. Equivalent global-chat routes are rejected with 403.
