@@ -426,6 +426,8 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       const body = await readJson(request);
       const blockedId = typeof body?.userId === "string" ? body.userId : "";
       if (!/^[0-9a-f-]{36}$/i.test(blockedId) || blockedId === user.id) return json({ error: "Invalid user" }, 400);
+      const target = await env.DB.prepare("SELECT id FROM mobile_users WHERE id = ? AND status = 'active'").bind(blockedId).first();
+      if (!target) return json({ error: "User not found" }, 404);
       await env.DB.prepare("INSERT OR IGNORE INTO mobile_user_blocks(blocker_id, blocked_id, created_at) VALUES (?, ?, ?)")
         .bind(user.id, blockedId, nowSeconds()).run();
       return json({ blocked: true });
@@ -439,6 +441,8 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       if (!/^[0-9a-f-]{36}$/i.test(targetId) || targetId === user.id || !reason || reason.length > 500) {
         return json({ error: "Invalid report details" }, 400);
       }
+      const target = await env.DB.prepare("SELECT id FROM mobile_users WHERE id = ?").bind(targetId).first();
+      if (!target) return json({ error: "User not found" }, 404);
       if (conversationId && !await isMember(env, conversationId, user.id)) return json({ error: "Conversation not found" }, 404);
       await env.DB.prepare(
         "INSERT INTO mobile_reports(id, reporter_id, target_user_id, conversation_id, reason, created_at) VALUES (?, ?, ?, ?, ?, ?)"
