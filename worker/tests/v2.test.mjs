@@ -240,9 +240,15 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE keys SET last_used_at")) {
-          const [lastUsedAt, robloxUserId, hash, developerId] = args;
+          const [lastUsedAt, robloxUserId, hash, developerId, expectedRobloxUserId] = args;
           const key = db.keys.get(hash);
-          if (!key || (developerId !== undefined && key.developerId !== developerId)) return { meta: { changes: 0 } };
+          if (
+            !key ||
+            (developerId !== undefined && key.developerId !== developerId) ||
+            (normalized.includes("last_roblox_user_id IS NULL") &&
+              key.lastRobloxUserId !== null &&
+              key.lastRobloxUserId !== expectedRobloxUserId)
+          ) return { meta: { changes: 0 } };
           key.lastUsedAt = lastUsedAt;
           key.lastRobloxUserId = robloxUserId;
           return { meta: { changes: 1 } };
@@ -486,6 +492,35 @@ testCase("licenses cannot be issued, validated, or revoked across developer boun
     body: { key: issuedOne.data.key, universeId: "12345", robloxUserId: MEMBER },
   });
   assert.equal(validateRevoked.status, 401);
+});
+
+testCase("a license is atomically bound to its first Roblox user", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Bound User");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Bound Game");
+  const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
+  assert.equal(issued.response.status, 201);
+
+  const firstUse = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(firstUse.status, 200);
+  assert.equal((await json(firstUse)).valid, true);
+
+  const differentUser = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER_2 },
+  });
+  assert.equal(differentUser.status, 403);
+  assert.deepEqual(await json(differentUser), {
+    valid: false,
+    reason: "roblox_user_mismatch",
+  });
+
+  const originalUserAgain = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(originalUserAgain.status, 200);
+  assert.equal((await json(originalUserAgain)).valid, true);
 });
 
 testCase("developer integration and Discord bot operations stay bound to one guild tenant", async () => {
