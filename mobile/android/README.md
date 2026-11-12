@@ -6,7 +6,7 @@ Native Android starter for the app-first ZervxHub experience. API contracts and 
 - Android Studio, JDK 17, Android SDK 35
 - Gradle 8.9 / Android Gradle Plugin 8.7.3
 
-Open this directory in Android Studio and sync Gradle. Build with `gradle assembleDebug`. A Gradle wrapper is not committed yet; generate/manage it with Android Studio.
+Open this directory in Android Studio and sync Gradle. Build with `gradle assembleDebug`. The Android CI workflow uploads a temporary debug APK artifact for testing after a successful build. A Gradle wrapper is not committed yet; generate/manage it with Android Studio.
 
 ## API configuration
 The API URL is intentionally empty until the verified Worker host and native session contract are approved. No credentials belong in committed Gradle properties. An empty URL keeps the app disconnected; no fake metrics or license records are shown.
