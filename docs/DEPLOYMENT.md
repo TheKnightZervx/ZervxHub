@@ -2,7 +2,7 @@
 
 ## Cloudflare Worker + D1
 
-1. Install Node.js 20+ and run `npm install` inside `worker/`.
+1. Install Node.js 22.12+ and run `npm install` inside `worker/`.
 2. Create a D1 database: `npx wrangler d1 create zervxhub-db`.
 3. Put the returned database ID in `worker/wrangler.toml`.
 4. Review the pending SQL migrations, then apply them to the remote database with `npx wrangler d1 migrations apply zervxhub-db --remote` from `worker/`. The `db:remote` package script intentionally exits without applying changes; it is a safety guard, not the migration command.
