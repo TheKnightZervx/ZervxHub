@@ -6,7 +6,7 @@
 2. Create a D1 database: `npx wrangler d1 create zervxhub-db`.
 3. Put the returned database ID in `worker/wrangler.toml`. The Worker serves the `website/` directory as same-origin static assets.
 4. Review the pending SQL migrations, then apply them to the remote database with `npx wrangler d1 migrations apply zervxhub-db --remote` from `worker/`. The `db:remote` package script intentionally exits without applying changes; it is a safety guard, not the migration command.
-   The account-binding migration preserves existing licenses and binds each one on its next successful Roblox validation.
+   The account-binding migration preserves each last recorded Roblox account; never-used licenses bind on their next successful validation.
 5. Set `CORS_ORIGIN` in Worker Variables to the exact HTTPS origin serving the Worker and dashboard, with no trailing slash.
 6. To enable developer sign-in, create a Discord OAuth2 application and set its redirect URI to `https://YOUR-WORKER/v2/auth/discord/callback`. Configure:
    - `DISCORD_OAUTH_CLIENT_ID` in Worker Variables.
