@@ -225,7 +225,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     if (!user) return json({ error: "Authentication required" }, 401);
     const now = nowSeconds();
     const token = randomHex(32);
-    const tokenHash = await hmac(token, env.KEY_PEPPER);
+    const tokenHash = await hmac("session:" + token, env.MOBILE_AUTH_PEPPER);
     const results = await env.DB.batch([
       env.DB.prepare("UPDATE mobile_sessions SET revoked_at = ? WHERE token_hash = ? AND revoked_at IS NULL")
         .bind(now, user.tokenHash),
