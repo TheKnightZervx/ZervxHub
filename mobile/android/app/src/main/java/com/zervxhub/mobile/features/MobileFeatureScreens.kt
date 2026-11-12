@@ -351,8 +351,10 @@ fun AccountScreen() {
 
     LaunchedEffect(Unit) {
         if (api.isSignedIn()) {
-            try { user = api.account() }
-            catch (error: Exception) { status = error.message ?: "Please sign in again." }
+            try {
+                if (api.refreshSession()) user = api.account()
+                else status = "Your session expired. Please sign in again."
+            } catch (error: Exception) { status = error.message ?: "Please sign in again." }
         }
     }
     LaunchedEffect(tab, user?.id) {
