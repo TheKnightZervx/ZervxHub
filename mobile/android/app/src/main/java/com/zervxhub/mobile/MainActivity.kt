@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import com.zervxhub.mobile.data.ApiConnection
+import com.zervxhub.mobile.data.HealthRepository
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +45,12 @@ private enum class Destination(val label: String, val glyph: String) {
 @Composable
 private fun ZervxHubApp() {
     var selected by remember { mutableStateOf(Destination.Home) }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var connection by remember { mutableStateOf<ApiConnection>(ApiConnection.Checking) }
+
+    LaunchedEffect(refreshKey) {
+        connection = HealthRepository().check()
+    }
 
     MaterialTheme(
         colorScheme = darkColorScheme(
@@ -56,11 +64,15 @@ private fun ZervxHubApp() {
     ) {
         Surface(modifier = Modifier.fillMaxSize(), color = Ink, contentColor = Color.White) {
             Column(modifier = Modifier.fillMaxSize()) {
-                AppHeader()
+                AppHeader(connection, onRefresh = { refreshKey++ })
                 HorizontalDivider(color = DividerTone)
                 Box(modifier = Modifier.weight(1f)) {
                     when (selected) {
-                        Destination.Home -> HomeScreen(onNavigate = { selected = it })
+                        Destination.Home -> HomeScreen(
+                            connection = connection,
+                            onRetry = { refreshKey++ },
+                            onNavigate = { selected = it }
+                        )
                         Destination.Projects -> EmptySection(
                             title = "Your projects",
                             description = "Projects and games connected to your developer account will appear here.",
@@ -115,7 +127,7 @@ private fun ZervxHubApp() {
 }
 
 @Composable
-private fun AppHeader() {
+private fun AppHeader(connection: ApiConnection, onRefresh: () -> Unit) {
     Row(
         modifier = Modifier.fillMaxWidth().background(Ink).padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -134,14 +146,22 @@ private fun AppHeader() {
             }
         }
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            Box(Modifier.size(7.dp).background(Muted, CircleShape))
-            Text("OFFLINE", color = Muted, style = MaterialTheme.typography.labelSmall)
+            val status = when (connection) {
+                is ApiConnection.Connected -> "API ONLINE"
+                ApiConnection.Checking -> "CHECKING"
+                ApiConnection.NotConfigured -> "NOT CONFIGURED"
+                is ApiConnection.Unavailable -> "API OFFLINE"
+            }
+            val statusColor = if (connection is ApiConnection.Connected) Gold else Muted
+            Box(Modifier.size(7.dp).background(statusColor, CircleShape))
+            Text(status, color = statusColor, style = MaterialTheme.typography.labelSmall)
+            Text("↻", color = Muted, modifier = Modifier.clickable(onClick = onRefresh), style = MaterialTheme.typography.titleMedium)
         }
     }
 }
 
 @Composable
-private fun HomeScreen(onNavigate: (Destination) -> Unit) {
+private fun HomeScreen(connection: ApiConnection, onRetry: () -> Unit, onNavigate: (Destination) -> Unit) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 22.dp, bottom = 28.dp),
@@ -162,14 +182,28 @@ private fun HomeScreen(onNavigate: (Destination) -> Unit) {
                 Column(Modifier.fillMaxWidth().padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Box(Modifier.size(8.dp).background(Gold, CircleShape))
-                        Text("ACCOUNT NOT CONNECTED", color = Gold, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
+                        val connectionLabel = when (connection) {
+                        is ApiConnection.Connected -> "API REACHABLE · SIGN-IN PENDING"
+                        ApiConnection.Checking -> "CHECKING API"
+                        ApiConnection.NotConfigured -> "API NOT CONFIGURED"
+                        is ApiConnection.Unavailable -> "API UNAVAILABLE"
+                    }
+                    Text(connectionLabel, color = Gold, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.Bold)
                     }
                     Text("Connect your ZervxHub account", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.SemiBold)
                     Text(
-                        "Sign-in and secure mobile sessions are being integrated. Your projects and license data will load from the live API once connected.",
+                        when (connection) {
+                            is ApiConnection.Connected -> "The API is reachable. Secure native sign-in and session linking are the next integration step."
+                            ApiConnection.Checking -> "Checking the configured ZervxHub API. Account data will only appear after secure sign-in."
+                            ApiConnection.NotConfigured -> "The API host has not been configured yet. The app stays disconnected until the verified Worker endpoint is set."
+                            is ApiConnection.Unavailable -> connection.message
+                        },
                         color = Muted,
                         style = MaterialTheme.typography.bodyMedium
                     )
+                    if (connection is ApiConnection.Unavailable) {
+                        Text("Retry connection", color = Gold, modifier = Modifier.clickable(onClick = onRetry), style = MaterialTheme.typography.labelLarge)
+                    }
                     Text("No sample projects, keys or fake statistics are displayed.", color = Muted, style = MaterialTheme.typography.labelSmall)
                 }
             }
