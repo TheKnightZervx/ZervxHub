@@ -4,7 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#090a0c">
-  <meta name="description" content="A searchable, copy-ready library of developer snippets for JavaScript, Python, Lua, Roblox, HTML, CSS, and Discord.js.">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:; worker-src blob:; connect-src 'none'; img-src 'self' data:; style-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="description" content="Save, organize, edit, and safely test reusable code for your ZervxHub projects and games.">
   <title>Developer Studio | ZervxHub</title>
   <link rel="stylesheet" href="styles.css">
   <script src="site.js" defer></script>
@@ -25,25 +26,77 @@
 
   <main id="main" class="shell">
     <section class="page-intro">
-      <p class="eyebrow">Developer Studio · Phase 1</p>
-      <h1>Useful code. Ready when you are.</h1>
-      <p>A searchable starter library for common developer tasks. Browse examples, inspect the code, and copy what you need. Nothing is executed or uploaded.</p>
+      <p class="eyebrow">Developer Studio · Workspace</p>
+      <h1>Your code. Your games. One workspace.</h1>
+      <p>Keep reusable scripts in one place, assign each one to a game or project, edit them whenever you need, and export a backup. Your private workspace stays in this browser on this device.</p>
     </section>
 
+    <section class="studio-workspace" aria-labelledby="workspace-title">
+      <div class="studio-section-heading">
+        <div><p class="eyebrow">Personal library</p><h2 id="workspace-title">Code workspace</h2></div>
+        <div class="studio-actions">
+          <button id="new-code" class="button button-primary" type="button">+ New code</button>
+          <button id="export-library" class="button button-small button-outline" type="button">Export backup</button>
+          <button id="import-library" class="button button-small button-outline" type="button">Import backup</button>
+          <input id="import-file" type="file" accept="application/json,.json" hidden>
+        </div>
+      </div>
+
+      <div class="studio-editor-layout">
+        <aside class="studio-library" aria-label="Saved code library">
+          <label for="saved-search">Find saved code<input id="saved-search" type="search" placeholder="Search your library…" autocomplete="off"></label>
+          <label for="saved-game-filter">Game / project<select id="saved-game-filter"><option value="all">All games and projects</option></select></label>
+          <p id="saved-count" class="studio-count" aria-live="polite">0 saved files</p>
+          <div id="saved-code-list" class="saved-code-list"><p class="studio-empty">Your saved code will appear here.</p></div>
+        </aside>
+
+        <section class="studio-editor" aria-label="Code editor">
+          <div class="studio-editor-fields">
+            <label for="code-title">File name<input id="code-title" maxlength="80" placeholder="e.g. Admin command handler"></label>
+            <label for="code-language">Language<select id="code-language"><option>JavaScript</option><option>Python</option><option>Lua</option><option>Roblox Lua</option><option>HTML</option><option>CSS</option><option>Discord.js</option></select></label>
+            <label for="code-game">Game / project<select id="code-game"><option value="">Unassigned</option></select></label>
+            <label for="new-game">Add a game / project<input id="new-game" maxlength="60" placeholder="e.g. My Roblox game"></label>
+          </div>
+          <div class="studio-actions studio-editor-actions">
+            <button id="add-game" class="button button-small button-outline" type="button">Add game</button>
+            <button id="save-code" class="button button-primary" type="button">Save code</button>
+            <button id="delete-code" class="button button-small button-outline" type="button" disabled>Delete</button>
+          </div>
+          <label class="editor-label" for="code-editor">Code editor</label>
+          <textarea id="code-editor" class="code-editor" spellcheck="false" autocapitalize="off" autocomplete="off" autocorrect="off" placeholder="// Write or paste your code here…"></textarea>
+          <div class="studio-actions studio-run-actions">
+            <button id="run-code" class="button button-primary" type="button">Run JavaScript safely</button>
+            <button id="stop-code" class="button button-small button-outline" type="button" disabled>Stop run</button>
+            <span id="editor-status" class="studio-status" role="status" aria-live="polite"></span>
+          </div>
+          <section class="studio-output" aria-labelledby="output-title">
+            <div class="studio-section-heading"><h3 id="output-title">Console output</h3><button id="clear-output" class="table-action" type="button">Clear</button></div>
+            <pre id="run-output" aria-live="polite">Run JavaScript code to see output here.</pre>
+          </section>
+          <details class="version-panel">
+            <summary>Version history for this file</summary>
+            <label for="version-select">Previous version<select id="version-select" disabled><option value="">No previous versions</option></select></label>
+            <button id="restore-version" class="button button-small button-outline" type="button" disabled>Load selected version</button>
+            <p class="studio-hint">Up to 10 earlier versions are kept per saved file in this browser.</p>
+          </details>
+        </section>
+      </div>
+    </section>
+
+    <section class="studio-section-heading snippet-heading">
+      <div><p class="eyebrow">Starter templates</p><h2>Browse reusable snippets</h2><p class="studio-hint">Load any example into your editor, assign it to a game, then save your own copy.</p></div>
+    </section>
     <section class="studio-toolbar" aria-label="Snippet filters">
-      <label for="snippet-search">Search snippets<input id="snippet-search" type="search" placeholder="Search by title, language, or keyword" autocomplete="off"></label>
+      <label for="snippet-search">Search examples<input id="snippet-search" type="search" placeholder="Search by title, language, or keyword" autocomplete="off"></label>
       <label for="snippet-language">Language<select id="snippet-language"><option value="all">All languages</option><option>JavaScript</option><option>Python</option><option>Lua</option><option>Roblox Lua</option><option>HTML</option><option>CSS</option><option>Discord.js</option></select></label>
       <p id="snippet-count" class="studio-count" aria-live="polite">Loading snippets…</p>
     </section>
-
-    <section id="snippet-grid" class="snippet-grid" aria-label="Code snippets">
-      <p class="studio-empty">Loading the snippet library…</p>
-    </section>
+    <section id="snippet-grid" class="snippet-grid" aria-label="Code snippets"><p class="studio-empty">Loading the snippet library…</p></section>
     <p id="copy-status" class="studio-status" role="status" aria-live="polite"></p>
 
     <section class="notice notice-caution top-gap">
-      <strong>Safe by design</strong>
-      <p>These are reference examples only. The page does not run code, connect to accounts, or send your code anywhere. Review and adapt snippets before using them in a real project.</p>
+      <strong>Where code runs</strong>
+      <p>Plain JavaScript can run in a short-lived Web Worker with a timeout and a restrictive browser policy. Python, Lua, Roblox Lua, HTML, CSS, and Discord.js are saved and organized here but need their own runtime or target environment. Roblox scripts must be tested in Roblox Studio or the actual game server. This workspace does not connect to a game or publish scripts automatically.</p>
     </section>
   </main>
 
