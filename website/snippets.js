@@ -316,8 +316,9 @@ function runJavaScript() {
   if (source.length > MAX_CODE_LENGTH) return setStatus("Code is too large to run.", true);
   stopRun("Starting isolated JavaScript worker…");
   output.textContent = "";
+  let outputLineCount = 0;
   const workerSource = `
-    const send = (type, value) => self.postMessage({ type, value: String(value) });
+    const send = (type, value) => self.postMessage({ type, value: String(value).slice(0, 4000) });
     const format = value => {
       try { return typeof value === "string" ? value : JSON.stringify(value); }
       catch { return String(value); }
@@ -342,6 +343,16 @@ function runJavaScript() {
     $("#stop-code").disabled = false;
     setStatus("Running in a temporary worker (2.5 second limit).");
     worker.onmessage = event => {
+      if (outputLineCount >= 200) {
+        if (outputLineCount === 200) {
+          const limit = document.createElement("div");
+          limit.textContent = "Output limit reached (200 lines).";
+          output.append(limit);
+          outputLineCount++;
+        }
+        return;
+      }
+      outputLineCount++;
       const line = document.createElement("div");
       line.textContent = event.data.value;
       line.className = event.data.type === "fatal" ? "console-error" : event.data.type;
