@@ -3,6 +3,9 @@ plugins {
  id("org.jetbrains.kotlin.android")
  id("org.jetbrains.kotlin.plugin.compose")
 }
+val configuredApiBaseUrl = providers.gradleProperty("zervxhubApiBaseUrl").orNull.orEmpty()
+val escapedApiBaseUrl = configuredApiBaseUrl.replace("\\", "\\\\").replace("\"", "\\\"")
+
 android {
  namespace = "com.zervxhub.mobile"
  compileSdk = 35
@@ -12,7 +15,7 @@ android {
   targetSdk = 35
   versionCode = 1
   versionName = "0.1.0"
-  buildConfigField("String", "API_BASE_URL", "\"\"")
+  buildConfigField("String", "API_BASE_URL", "\"$escapedApiBaseUrl\"")
  }
  buildFeatures { compose = true; buildConfig = true }
  compileOptions {

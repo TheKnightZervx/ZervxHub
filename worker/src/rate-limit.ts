@@ -51,7 +51,8 @@ export function isRateLimited(
     (typeof request?.headers?.get === "function"
       ? request.headers.get("cf-connecting-ip")
       : null) || "local";
-  const key = `${scope}:${client}:${discriminator}`;
+  // Identity-scoped limits must survive IP changes; use a separate IP key when no identity is supplied.
+  const key = discriminator ? `${scope}:identity:${discriminator}` : `${scope}:ip:${client}`;
 
   // Periodic passive maintenance of expired buckets
   if (now - lastCleanup >= CLEANUP_INTERVAL_MS && buckets.size > 0) {

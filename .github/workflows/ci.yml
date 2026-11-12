@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, mission3-base]
   push:
-    branches: [main, mission3-base, "codex/**"]
+    branches: [main, mission3-base, "codex/**", "mission4-*"]
 
 jobs:
   worker:

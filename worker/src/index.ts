@@ -3,7 +3,9 @@ import {
   consumeGameValidationRequest,
   getGameServerKeyOwner,
   handleV2,
+  parseJsonBody,
 } from "./v2";
+import { handleMobile } from "./mobile";
 import {
   isRateLimited,
   resetRateLimits,
@@ -31,11 +33,13 @@ export interface Env {
   ADMIN_TOKEN: string;
   BOT_API_TOKEN?: string;
   KEY_PEPPER: string;
+  MOBILE_AUTH_PEPPER?: string;
   ALLOWED_UNIVERSE_IDS: string;
   CORS_ORIGIN?: string;
   DISCORD_OAUTH_CLIENT_ID?: string;
   DISCORD_OAUTH_CLIENT_SECRET?: string;
   DISCORD_OAUTH_REDIRECT_URI?: string;
+  MAILER?: { fetch(request: Request): Promise<Response> };
   ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
@@ -49,7 +53,7 @@ const json = (data: Json, status = 200, origin = "*") =>
       "cache-control": "no-store",
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token",
+      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token, authorization",
       "vary": "origin",
     },
   });
@@ -90,6 +94,10 @@ export default {
 
     const url = new URL(request.url);
 
+    // Native mobile identity/chat API is isolated from legacy developer auth.
+    const mobileResponse = await handleMobile(request, env);
+    if (mobileResponse) return mobileResponse;
+
     // Handle the new multi-developer API.
     const v2Response = await handleV2(request, env);
     if (v2Response) return v2Response;
@@ -111,25 +119,10 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (Number.isFinite(contentLength) && contentLength > 16_384) {
-      return json({ error: "Request too large" }, 413, origin);
-    }
-
-    let body: Json;
-    try {
-      const rawBody = await request.text();
-      if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
-        return json({ error: "Request too large" }, 413, origin);
-      }
-      const parsed: unknown = JSON.parse(rawBody);
-      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return json({ error: "Invalid JSON body" }, 400, origin);
-      }
-      body = parsed as Json;
-    } catch {
-      return json({ error: "Invalid JSON body" }, 400, origin);
-    }
+    const parsedBody = await parseJsonBody(request);
+    if (parsedBody.error === "too_large") return json({ error: "Request too large" }, 413, origin);
+    if (!parsedBody.data) return json({ error: "Invalid JSON body" }, 400, origin);
+    const body: Json = parsedBody.data;
 
     if (url.pathname === "/v1/keys/validate") {
       if (isRateLimited(request, "license-validation")) {
@@ -263,6 +256,9 @@ export default {
     }
 
     if (!await authorized(request, env)) {
+      if (isRateLimited(request, "v1-admin-auth-failure", 40)) {
+        return json({ error: "Too many requests" }, 429, origin);
+      }
       return json({ error: "Unauthorized" }, 401, origin);
     }
 
@@ -361,5 +357,17 @@ export default {
     }
 
     return json({ error: "Not found" }, 404, origin);
+  },
+
+  scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const now = Math.floor(Date.now() / 1000);
+    ctx.waitUntil(Promise.all([
+      env.DB.prepare("DELETE FROM mobile_email_challenges WHERE expires_at <= ? OR consumed_at IS NOT NULL")
+        .bind(now).run(),
+      env.DB.prepare("DELETE FROM mobile_rate_limits WHERE window_start < ?")
+        .bind(now - 86_400).run(),
+      env.DB.prepare("DELETE FROM mobile_sessions WHERE expires_at <= ? OR (revoked_at IS NOT NULL AND revoked_at < ?)")
+        .bind(now, now - 86_400).run(),
+    ]).then(() => undefined));
   },
 };

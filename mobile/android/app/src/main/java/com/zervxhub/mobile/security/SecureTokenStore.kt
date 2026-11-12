@@ -51,7 +51,7 @@ class SecureTokenStore(context: Context) {
 
  private companion object {
   const val TRANSFORMATION = "AES/GCM/NoPadding"
-  const val TOKEN_KEY = "encrypted_refresh_token"
+  const val TOKEN_KEY = "encrypted_session_token"
   const val IV_LENGTH = 12
  }
 }

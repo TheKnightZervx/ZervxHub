@@ -46,5 +46,54 @@ Proposed routes only; implement only after route schemas and D1 migrations have 
 - Never trust client-submitted plan, price, entitlement or payment status. Grant entitlements only from verified provider webhooks/server-side checks.
 - Do not bundle payment secrets or open a checkout that can incur charges without explicit approval.
 
-## Not yet implemented
-The Android UI currently presents disabled placeholders until matching server endpoints, storage authorization, realtime transport and tests exist. Do not show fake users, messages, prices, entitlements or payment success.
+## Remaining gated capabilities
+The Android account and text-chat screens now use the authenticated mobile API. Private voice notes, files, voice/video calls and screen sharing remain disabled until private storage, malware quarantine, secure signaling, TURN/SFU reachability, abuse controls and cost are verified. Do not show fake users, messages, prices, entitlements or payment success.
+
+
+## Implemented mobile backend routes
+
+The Worker now has a separate native-mobile API module. All protected routes use `Authorization: Bearer <opaque-session-token>`; the server derives the user identity from the stored token hash.
+
+| Method | Route | Capability |
+| --- | --- | --- |
+| POST | `/v2/mobile/auth/email/request-code` | Request passwordless email OTP |
+| POST | `/v2/mobile/auth/email/verify-code` | Verify one-time code and create session |
+| POST | `/v2/mobile/auth/session/refresh` | Rotate session token |
+| POST | `/v2/mobile/auth/session/logout` | Revoke current session |
+| POST | `/v2/mobile/auth/session/logout-all` | Revoke all user sessions |
+| GET | `/v2/mobile/account` | Read authenticated profile |
+| GET | `/v2/mobile/subscription` | Read connected subscription record; returns null until linked |
+| GET/POST | `/v2/mobile/chat/global/messages` | Global text and Unicode emoji |
+| GET | `/v2/mobile/chat/conversations` | List current user's direct/group conversations |
+| POST | `/v2/mobile/chat/direct` | Create or retrieve exactly-two-user conversation |
+| POST | `/v2/mobile/chat/groups` | Create private group with current memberships |
+| GET/POST | `/v2/mobile/chat/conversations/:id/messages` | Membership-checked private text messages |
+| POST | `/v2/mobile/chat/block` | Block a user |
+| POST | `/v2/mobile/chat/report` | Report abuse |
+
+Email delivery uses an optional `MAILER` Cloudflare service binding to `https://mailer.internal/send`. No binding is configured yet; without it, OTP requests return 503 and no verification code is generated. The delivery service must be reviewed and approved before use.
+
+The D1 schema is migration `0007_mobile_identity_and_chat.sql`. Apply it locally for development only. Do not run remote migrations from this branch.
+
+Private attachments, voice messages, WebRTC calls, video, and screen sharing remain explicitly disabled until private object storage, malware quarantine, upload grants, TURN/SFU reachability, mobile lifecycle behavior, and cost controls are verified. Global chat rejects media payloads by design.
+
+
+## Android local API configuration
+
+The Android build intentionally has no hardcoded production host. Set a verified HTTPS Worker URL only for local testing:
+
+```bash
+cd mobile/android
+gradle assembleDebug -PzervxhubApiBaseUrl=https://YOUR-VERIFIED-WORKER-HOST
+```
+
+The value is injected into the debug/release BuildConfig at build time; release builds reject plain HTTP. Do not commit a real production host or secrets. A blank value leaves the client disconnected and displays a configuration message.
+
+Private media/call route placeholders are scoped to an authenticated direct or group conversation:
+- `POST /v2/mobile/chat/conversations/:id/attachments`
+- `POST /v2/mobile/chat/conversations/:id/voice-messages`
+- `POST /v2/mobile/chat/conversations/:id/calls`
+- `POST /v2/mobile/chat/conversations/:id/signaling`
+- `POST /v2/mobile/chat/conversations/:id/screen-share`
+
+They verify current membership and then return 503 while storage/relay infrastructure remains unconfigured. Equivalent global-chat routes are rejected with 403.
