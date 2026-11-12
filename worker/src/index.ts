@@ -357,4 +357,16 @@ export default {
 
     return json({ error: "Not found" }, 404, origin);
   },
+
+  scheduled(_controller: ScheduledController, env: Env, ctx: ExecutionContext) {
+    const now = Math.floor(Date.now() / 1000);
+    ctx.waitUntil(Promise.all([
+      env.DB.prepare("DELETE FROM mobile_email_challenges WHERE expires_at <= ? OR consumed_at IS NOT NULL")
+        .bind(now).run(),
+      env.DB.prepare("DELETE FROM mobile_rate_limits WHERE window_start < ?")
+        .bind(now - 86_400).run(),
+      env.DB.prepare("DELETE FROM mobile_sessions WHERE expires_at <= ? OR (revoked_at IS NOT NULL AND revoked_at < ?)")
+        .bind(now, now - 86_400).run(),
+    ]).then(() => undefined));
+  },
 };
