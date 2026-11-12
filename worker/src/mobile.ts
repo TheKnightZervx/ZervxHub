@@ -384,6 +384,11 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       return json({ conversationId: id, kind: "group", name, memberCount: members.length }, 201);
     }
 
+    if (method === "POST" && path.startsWith("/v2/mobile/chat/global/") &&
+        /(attachments|voice-messages|calls|signaling|screen-share)/i.test(path)) {
+      return json({ error: "Global chat supports text and emoji only" }, 403);
+    }
+
     const privateMediaMatch = path.match(/^\/v2\/mobile\/chat\/conversations\/([0-9a-f-]{36})\/(attachments|voice-messages|calls|signaling)$/i);
     if (method === "POST" && privateMediaMatch) {
       const conversationId = privateMediaMatch[1];
