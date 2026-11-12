@@ -63,7 +63,7 @@ Health check:
 curl https://YOUR-WORKER.workers.dev/v1/health
 ```
 
-Roblox calls `POST /v2/keys/validate` without an admin or bot secret. The JSON body contains `key`, `universeId`, and `robloxUserId`. The Discord bot uses `x-bot-token` for its V2 endpoints. Administrative V2 routes use `x-admin-token`.
+Roblox calls `POST /v2/keys/validate` without an admin or bot secret. The JSON body contains `key`, `universeId`, and `robloxUserId`. The legacy `POST /v1/keys/validate` route also requires `robloxUserId` and binds each legacy license to the first Roblox account that successfully uses it; requests without a valid numeric UserId are rejected. The Discord bot uses `x-bot-token` for its V2 endpoints. Administrative V2 routes use `x-admin-token`.
 
 ## Before public launch
 
