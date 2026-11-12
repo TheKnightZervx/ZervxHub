@@ -73,7 +73,7 @@ class MobileApiClient(context: Context) {
             .getString("conversationId")
 
     suspend fun createGroup(name: String, memberEmails: List<String>): String {
-        val members = JSONArray().apply { memberEmails.forEach(::put) }
+        val members = JSONArray().apply { memberEmails.forEach { put(it) } }
         return call("POST", "v2/mobile/chat/groups", JSONObject().put("name", name).put("memberEmails", members))
             .getString("conversationId")
     }
@@ -96,7 +96,12 @@ class MobileApiClient(context: Context) {
     ): JSONObject = withContext(Dispatchers.IO) {
         val base = ApiConfiguration.baseUrl()
             ?: throw IOException("The verified ZervxHub API address has not been configured yet.")
-        val url = base.newBuilder().addPathSegments(path).build()
+        val urlBuilder = base.newBuilder().addPathSegments(path.substringBefore("?"))
+        path.substringAfter("?", "").takeIf { it.isNotBlank() }?.split("&")?.forEach { pair ->
+            val parts = pair.split("=", limit = 2)
+            urlBuilder.addQueryParameter(parts[0], parts.getOrElse(1) { "" })
+        }
+        val url = urlBuilder.build()
         val builder = Request.Builder().url(url).header("Accept", "application/json")
         if (authenticated) {
             val token = tokens.read() ?: throw IOException("Sign in to continue.")
