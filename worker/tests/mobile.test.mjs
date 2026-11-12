@@ -59,7 +59,8 @@ before(async () => {
   sentEmails = [];
   env = {
     DB: new SqliteD1(db),
-    KEY_PEPPER: "test-only-mobile-pepper",
+    KEY_PEPPER: "test-only-legacy-pepper",
+    MOBILE_AUTH_PEPPER: "test-only-mobile-pepper",
     ADMIN_TOKEN: "test-admin",
     ALLOWED_UNIVERSE_IDS: "",
     MAILER: {
