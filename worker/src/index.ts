@@ -3,6 +3,7 @@ import {
   consumeGameValidationRequest,
   getGameServerKeyOwner,
   handleV2,
+  parseJsonBody,
 } from "./v2";
 import { handleMobile } from "./mobile";
 import {
@@ -117,25 +118,10 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
-    const contentLength = Number(request.headers.get("content-length") ?? 0);
-    if (Number.isFinite(contentLength) && contentLength > 16_384) {
-      return json({ error: "Request too large" }, 413, origin);
-    }
-
-    let body: Json;
-    try {
-      const rawBody = await request.text();
-      if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
-        return json({ error: "Request too large" }, 413, origin);
-      }
-      const parsed: unknown = JSON.parse(rawBody);
-      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
-        return json({ error: "Invalid JSON body" }, 400, origin);
-      }
-      body = parsed as Json;
-    } catch {
-      return json({ error: "Invalid JSON body" }, 400, origin);
-    }
+    const parsedBody = await parseJsonBody(request);
+    if (parsedBody.error === "too_large") return json({ error: "Request too large" }, 413, origin);
+    if (!parsedBody.data) return json({ error: "Invalid JSON body" }, 400, origin);
+    const body: Json = parsedBody.data;
 
     if (url.pathname === "/v1/keys/validate") {
       if (isRateLimited(request, "license-validation")) {
@@ -269,6 +255,9 @@ export default {
     }
 
     if (!await authorized(request, env)) {
+      if (isRateLimited(request, "v1-admin-auth-failure", 40)) {
+        return json({ error: "Too many requests" }, 429, origin);
+      }
       return json({ error: "Unauthorized" }, 401, origin);
     }
 
