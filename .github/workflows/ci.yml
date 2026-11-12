@@ -46,3 +46,26 @@ jobs:
       - name: Run tests
         working-directory: discord-bot
         run: npm test
+  website:
+    name: Website and Developer Studio checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+      - name: Check website JavaScript syntax
+        run: |
+          for file in website/*.js; do
+            node --check "$file"
+          done
+      - name: Verify Developer Studio assets
+        run: |
+          test -s website/snippets.html
+          test -s website/snippets.js
+          test -s docs/DEVELOPER_STUDIO.md
+          grep -q 'id="snippet-grid"' website/snippets.html
+          grep -q 'navigator.clipboard.writeText' website/snippets.js
+      - name: Ensure snippets are never executed
+        run: |
+          ! grep -nE '\\beval[[:space:]]*\\(|new Function' website/snippets.js
