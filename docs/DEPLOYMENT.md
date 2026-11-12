@@ -5,7 +5,7 @@
 1. Install Node.js 20+ and run `npm install` inside `worker/`.
 2. Create a D1 database: `npx wrangler d1 create zervxhub-db`.
 3. Put the returned database ID in `worker/wrangler.toml`.
-4. Apply the schema: `npm run db:remote`.
+4. Review the pending SQL migrations, then apply them to the remote database with `npx wrangler d1 migrations apply zervxhub-db --remote` from `worker/`. The `db:remote` package script intentionally exits without applying changes; it is a safety guard, not the migration command.
 5. Set strong secrets using Wrangler:
    - `npx wrangler secret put ADMIN_TOKEN` (Worker administrative operations)
    - `npx wrangler secret put KEY_PEPPER` (High-entropy secret for HMAC-SHA-256 key hashing)
@@ -48,7 +48,7 @@ Health check:
 curl https://YOUR-WORKER.workers.dev/v1/health
 ```
 
-The bot calls `POST /v1/keys/issue` and `POST /v1/keys/revoke` with the private admin header. Roblox calls `POST /v1/keys/validate` without an admin secret. Validation expects `key`, `universeId`, and `robloxUserId` JSON fields.
+The Discord bot calls `POST /v2/discord/games`, `POST /v2/discord/keys/issue`, and `POST /v2/discord/keys/revoke` with the private `x-bot-token` header. It does not use the Worker admin token. The Roblox server calls `POST /v2/keys/validate` without an admin or developer secret. Validation expects `key`, `universeId`, and `robloxUserId` JSON fields.
 
 ## Before public launch
 
