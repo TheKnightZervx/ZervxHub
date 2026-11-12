@@ -117,7 +117,12 @@ export default {
       const robloxUserId =
         typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
 
-      if (key.length < 20 || key.length > 100 || !/^[0-9]+$/.test(universeId)) {
+      if (
+        key.length < 20 ||
+        key.length > 100 ||
+        !/^[0-9]+$/.test(universeId) ||
+        !/^[0-9]{1,24}$/.test(robloxUserId)
+      ) {
         return json({ valid: false, reason: "invalid_request" }, 400, origin);
       }
 
@@ -133,12 +138,13 @@ export default {
       );
 
       const row = await env.DB.prepare(
-        "SELECT status, expires_at, allowed_universe_ids, key_hash FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL"
+        "SELECT status, expires_at, allowed_universe_ids, key_hash, last_roblox_user_id FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL"
       ).bind(keyHash, legacyHash).first<{
         status: string;
         expires_at: number;
         allowed_universe_ids: string | null;
         key_hash: string;
+        last_roblox_user_id: string | null;
       }>();
 
       if (!row || row.status !== "active") {
@@ -161,9 +167,17 @@ export default {
         return json({ valid: false, reason: "game_not_allowed" }, 403, origin);
       }
 
-      await env.DB.prepare(
-        "UPDATE keys SET last_used_at = ?1, last_roblox_user_id = ?2 WHERE key_hash = ?3"
-      ).bind(now, robloxUserId || null, row.key_hash).run();
+      // Atomically bind legacy V1 licenses to their first Roblox user too.
+      // The developer_id IS NULL guard keeps this compatibility route scoped to V1 keys.
+      const binding = await env.DB.prepare(
+        "UPDATE keys SET last_used_at = ?1, last_roblox_user_id = ?2 " +
+        "WHERE key_hash = ?3 AND developer_id IS ?4 AND status = 'active' " +
+        "AND (last_roblox_user_id IS NULL OR last_roblox_user_id = ?5)"
+      ).bind(now, robloxUserId, row.key_hash, null, robloxUserId).run();
+
+      if (binding.meta.changes === 0) {
+        return json({ valid: false, reason: "roblox_user_mismatch" }, 403, origin);
+      }
 
       // Seamlessly upgrade legacy hash
       if (row.key_hash === legacyHash && keyHash !== legacyHash) {
