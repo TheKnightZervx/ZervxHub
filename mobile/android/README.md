@@ -19,6 +19,7 @@ The API URL is intentionally empty until the verified Worker host and native ses
 - Release API configuration rejects non-HTTPS URLs and embedded credentials.
 - Login/refresh is not wired until server-side session issuance, rotation, and revocation contracts are reviewed.
 - API origin policy has unit tests for empty configuration, HTTPS enforcement, debug-only local HTTP, and rejection of embedded credentials/query/fragment.
+- The app performs a credential-free `GET /v1/health` check when opened; it never treats API reachability as authentication and never displays fake account data.
 
 ## Planned modules
 Home/account, projects, license/key management, activity/notifications, Developer Studio, device/session security.
