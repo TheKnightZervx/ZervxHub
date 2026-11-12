@@ -651,3 +651,48 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   assert.equal(legacyValidate.status, 200);
   assert.equal((await json(legacyValidate)).valid, true);
 });
+
+testCase("revoked Discord integrations and suspended developers cannot use bot endpoints", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Game");
+
+  const connect = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(connect.status, 201);
+
+  const beforeRevoke = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(beforeRevoke.status, 200);
+  assert.deepEqual((await json(beforeRevoke)).games.map(game => game.universeId), ["12345"]);
+
+  const revoke = await api.request("/v2/admin/discord-integrations/revoke", {
+    body: { guildId: GUILD_1 }, headers: adminHeaders,
+  });
+  assert.deepEqual(await json(revoke), { revoked: true });
+
+  const afterRevoke = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(afterRevoke.status, 404);
+
+  const reconnect = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(reconnect.status, 201);
+
+  const suspend = await api.request("/v2/admin/developers/status", {
+    body: { developerId: developer.developerId, status: "suspended" },
+    headers: adminHeaders,
+  });
+  assert.equal(suspend.status, 200);
+
+  const afterSuspend = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(afterSuspend.status, 404);
+});
