@@ -11,6 +11,7 @@ globalThis.crypto ??= webcrypto;
 
 let worker;
 let resetRateLimits;
+let getBucketCount;
 let buildDir;
 
 before(async () => {
@@ -27,6 +28,7 @@ before(async () => {
   const built = await import(pathToFileURL(outfile).href);
   worker = built.default;
   resetRateLimits = built.resetRateLimits;
+  getBucketCount = built.getBucketCount;
 });
 
 after(async () => {
@@ -59,6 +61,11 @@ class MemoryD1 {
           const developer = db.developers.get(id);
           return developer?.status === "active" ? { id } : null;
         }
+        if (normalized.startsWith("SELECT id, status FROM developers")) {
+          const [id] = args;
+          const developer = db.developers.get(id);
+          return developer ? { id, status: developer.status } : null;
+        }
         if (normalized.startsWith("SELECT id FROM games")) {
           const [developerId, universeId] = args;
           const game = [...db.games.values()].find(row =>
@@ -87,16 +94,19 @@ class MemoryD1 {
             developer_id: key.developerId,
             key_hash: key.hash || hash1,
             last_roblox_user_id: key.lastRobloxUserId,
+            public_id: key.publicId,
+            bound_roblox_user_id: key.boundRobloxUserId ?? null,
           } : null;
         }
         if (normalized.includes("FROM keys WHERE") && normalized.includes("developer_id IS NULL")) {
           const [hash1, hash2] = args;
           const key = db.keys.get(hash1) || (hash2 && db.keys.get(hash2));
-          return key?.developerId == null ? {
+          return key && key.developerId == null ? {
             status: key.status,
             expires_at: key.expiresAt,
             allowed_universe_ids: key.allowedUniverseIds,
             key_hash: key.hash || hash1,
+            bound_roblox_user_id: key.boundRobloxUserId ?? null,
           } : null;
         }
         if (normalized.startsWith("SELECT i.developer_id FROM discord_integrations")) {
@@ -143,18 +153,19 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE developer_api_keys SET revoked_at")) {
-          const [revokedAt, selector, hash2] = args;
           if (normalized.includes("WHERE developer_id = ?")) {
+            const [revokedAt, developerId] = args;
             let changes = 0;
             for (const key of db.apiKeys.values()) {
-              if (key.developerId === selector && !key.revokedAt) {
+              if (key.developerId === developerId && !key.revokedAt) {
                 key.revokedAt = revokedAt;
                 changes++;
               }
             }
             return { meta: { changes } };
           }
-          const key = db.apiKeys.get(selector) || (hash2 && db.apiKeys.get(hash2));
+          const [revokedAt, hash1, hash2] = args;
+          const key = db.apiKeys.get(hash1) || (hash2 && db.apiKeys.get(hash2));
           if (!key || key.revokedAt) return { meta: { changes: 0 } };
           key.revokedAt = revokedAt;
           return { meta: { changes: 1 } };
@@ -229,29 +240,48 @@ class MemoryD1 {
           if (recent) return { meta: { changes: 0 } };
           db.keys.set(hash, {
             hash, discordUserId, createdAt, expiresAt, allowedUniverseIds,
-            developerId: null, status: "active", lastUsedAt: null, lastRobloxUserId: null,
+            developerId: null, publicId: null, status: "active", lastUsedAt: null,
+            lastRobloxUserId: null, boundRobloxUserId: null,
           });
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("INSERT INTO keys")) {
-          const [hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, checkDeveloperId, checkDiscordId, threshold] = args;
-          const recent = [...db.keys.values()].some(row => row.developerId === checkDeveloperId && row.discordUserId === checkDiscordId && row.createdAt > threshold);
+          const [hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, publicId] = args;
+          const checkDeveloperId = args[7] ?? developerId;
+          const checkDiscordId = args[8] ?? discordUserId;
+          const threshold = args[9] ?? Number.NEGATIVE_INFINITY;
+          const recent = [...db.keys.values()].some(row =>
+            row.developerId === checkDeveloperId &&
+            row.discordUserId === checkDiscordId &&
+            row.createdAt > threshold);
           if (recent) return { meta: { changes: 0 } };
-          db.keys.set(hash, { hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, status: "active", lastUsedAt: null, lastRobloxUserId: null });
+          db.keys.set(hash, {
+            hash, discordUserId, createdAt, expiresAt, allowedUniverseIds,
+            developerId, publicId, status: "active", lastUsedAt: null,
+            lastRobloxUserId: null, boundRobloxUserId: null, validationCount: 0,
+          });
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE keys SET last_used_at")) {
-          const [lastUsedAt, robloxUserId, hash, developerId, expectedRobloxUserId] = args;
+          const legacy = normalized.includes("developer_id IS NULL");
+          const [lastUsedAt, robloxUserId, boundUserId, hash] = args;
+          const developerId = legacy ? null : args[4];
+          const expiresAt = args[legacy ? 4 : 5];
+          const expectedBoundUserId = args[legacy ? 5 : 6];
           const key = db.keys.get(hash);
           if (
             !key ||
-            (developerId !== undefined && key.developerId !== developerId) ||
-            (normalized.includes("last_roblox_user_id IS NULL") &&
-              key.lastRobloxUserId !== null &&
-              key.lastRobloxUserId !== expectedRobloxUserId)
+            (legacy ? key.developerId != null : key.developerId !== developerId) ||
+            key.status !== "active" ||
+            key.expiresAt <= expiresAt ||
+            (key.boundRobloxUserId && key.boundRobloxUserId !== expectedBoundUserId)
           ) return { meta: { changes: 0 } };
           key.lastUsedAt = lastUsedAt;
           key.lastRobloxUserId = robloxUserId;
+          key.boundRobloxUserId = boundUserId;
+          if (normalized.includes("validation_count = validation_count + 1")) {
+            key.validationCount = (key.validationCount ?? 0) + 1;
+          }
           return { meta: { changes: 1 } };
         }
         return { meta: { changes: 0 } };
@@ -262,7 +292,29 @@ class MemoryD1 {
 
   revokeKeys(sql, args) {
     let matches;
-    if (sql.includes("developer_id IS NULL") && sql.includes("key_hash")) {
+    if (sql.includes("revoked_at = ?") && sql.includes("key_hash") && sql.includes("developer_id = ?")) {
+      const [revokedAt, hash1, hash2, developerId] = args;
+      matches = [...this.keys.values()].filter(row =>
+        (row.hash === hash1 || row.hash === hash2) &&
+        row.developerId === developerId &&
+        row.status === "active");
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("revoked_at = ?") && sql.includes("discord_user_id = ? AND developer_id = ?")) {
+      const [revokedAt, discordUserId, developerId] = args;
+      matches = [...this.keys.values()].filter(row =>
+        row.developerId === developerId &&
+        row.discordUserId === discordUserId &&
+        row.status === "active");
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("revoked_at = ?") && sql.includes("developer_id = ? AND discord_user_id = ?")) {
+      const [revokedAt, developerId, discordUserId, olderThan] = args;
+      matches = [...this.keys.values()].filter(row =>
+        row.developerId === developerId &&
+        row.discordUserId === discordUserId &&
+        row.status === "active" &&
+        (olderThan === undefined || row.createdAt <= olderThan));
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("developer_id IS NULL") && sql.includes("key_hash")) {
       const [hash1, hash2] = args;
       matches = [...this.keys.values()].filter(row => (row.hash === hash1 || row.hash === hash2) && row.developerId == null && row.status === "active");
     } else if (sql.includes("developer_id IS NULL") && sql.includes("created_at <=")) {
@@ -404,12 +456,25 @@ testCase("admins can list developers while unauthenticated callers are denied", 
 testCase("admin can rotate a developer API key and the previous key stops working", async () => {
   const api = createApi();
   const developer = await createDeveloper(api, GUILD_1, "Rotate Me");
+  const denied = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: developer.developerId },
+    headers: devHeaders(developer.apiKey),
+  });
+  assert.equal(denied.status, 401);
+
+  const missing = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: "missing-developer" },
+    headers: adminHeaders,
+  });
+  assert.equal(missing.status, 404);
+
   const rotated = await api.request("/v2/admin/developer-keys/rotate", {
     body: { developerId: developer.developerId },
     headers: adminHeaders,
   });
   assert.equal(rotated.status, 201);
   const result = await json(rotated);
+  assert.equal(result.rotated, true);
   assert.match(result.apiKey, /^zvh_live_[a-f0-9]{64}$/);
   assert.notEqual(result.apiKey, developer.apiKey);
   assert.equal(api.DB.apiKeys.has(result.apiKey), false);
@@ -514,7 +579,7 @@ testCase("a license is atomically bound to its first Roblox user", async () => {
   assert.equal(differentUser.status, 403);
   assert.deepEqual(await json(differentUser), {
     valid: false,
-    reason: "roblox_user_mismatch",
+    reason: "license_bound_to_another_user",
   });
 
   const originalUserAgain = await api.request("/v2/keys/validate", {
@@ -547,8 +612,8 @@ testCase("concurrent first-use validation binds a license to only one Roblox use
   const firstBody = await json(first);
   const secondBody = await json(second);
   assert.ok(
-    (firstBody.valid === true && secondBody.reason === "roblox_user_mismatch") ||
-    (secondBody.valid === true && firstBody.reason === "roblox_user_mismatch"),
+    (firstBody.valid === true && secondBody.reason === "license_bound_to_another_user") ||
+    (secondBody.valid === true && firstBody.reason === "license_bound_to_another_user"),
   );
 });
 
@@ -612,6 +677,18 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   });
   assert.equal(oversizedV1.status, 413);
 
+  for (const robloxUserId of ["not-a-user", "1".repeat(25), 12345]) {
+    const invalidUserId = await api.request("/v1/keys/validate", {
+      body: { key: "x".repeat(20), universeId: "12345", robloxUserId },
+    });
+    assert.equal(invalidUserId.status, 400);
+    assert.deepEqual(await json(invalidUserId), { valid: false, reason: "invalid_request" });
+  }
+  const optionalUserId = await api.request("/v1/keys/validate", {
+    body: { key: "x".repeat(20), universeId: "12345" },
+  });
+  assert.equal(optionalUserId.status, 400);
+
   const developer = await createDeveloper(api, GUILD_1, "One");
   await registerApprovedGame(api, developer.apiKey, "12345", "Game");
   const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
@@ -620,6 +697,27 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
     body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
   });
   assert.equal(v1.status, 401);
+});
+
+testCase("invalid Discord issue IDs do not create unbounded rate-limit keys", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Game");
+  const connected = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(connected.status, 201);
+
+  const before = getBucketCount();
+  for (const discordUserId of ["1".repeat(5_000), "2".repeat(5_000)]) {
+    const response = await api.request("/v2/discord/keys/issue", {
+      body: { guildId: GUILD_1, discordUserId, universeId: "12345" },
+      headers: botHeaders,
+    });
+    assert.equal(response.status, 400);
+  }
+  assert.equal(getBucketCount(), before + 2);
 });
 
 testCase("expired licenses fail validation", async () => {
@@ -834,7 +932,7 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   assert.equal(legacyDifferentUser.status, 403);
   assert.deepEqual(await json(legacyDifferentUser), {
     valid: false,
-    reason: "roblox_user_mismatch",
+    reason: "license_bound_to_another_user",
   });
 
   const legacyOriginalUser = await api.request("/v1/keys/validate", {
@@ -847,4 +945,49 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
     body: { key: legacyBody.key, universeId: "12345" },
   });
   assert.equal(missingRobloxUser.status, 400);
+});
+
+testCase("revoked Discord integrations and suspended developers cannot use bot endpoints", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Game");
+
+  const connect = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(connect.status, 201);
+
+  const beforeRevoke = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(beforeRevoke.status, 200);
+  assert.deepEqual((await json(beforeRevoke)).games.map(game => game.universeId), ["12345"]);
+
+  const revoke = await api.request("/v2/admin/discord-integrations/revoke", {
+    body: { guildId: GUILD_1 }, headers: adminHeaders,
+  });
+  assert.deepEqual(await json(revoke), { revoked: true });
+
+  const afterRevoke = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(afterRevoke.status, 404);
+
+  const reconnect = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(reconnect.status, 201);
+
+  const suspend = await api.request("/v2/admin/developers/status", {
+    body: { developerId: developer.developerId, status: "suspended" },
+    headers: adminHeaders,
+  });
+  assert.equal(suspend.status, 200);
+
+  const afterSuspend = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 }, headers: botHeaders,
+  });
+  assert.equal(afterSuspend.status, 404);
 });

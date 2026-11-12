@@ -29,6 +29,10 @@ export interface Env {
   KEY_PEPPER: string;
   ALLOWED_UNIVERSE_IDS: string;
   CORS_ORIGIN?: string;
+  DISCORD_OAUTH_CLIENT_ID?: string;
+  DISCORD_OAUTH_CLIENT_SECRET?: string;
+  DISCORD_OAUTH_REDIRECT_URI?: string;
+  ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
 type Json = Record<string, unknown>;
@@ -72,6 +76,9 @@ export default {
           "access-control-allow-origin": origin,
           "access-control-allow-methods": "GET, POST, OPTIONS",
           "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-bot-token",
+          ...(env.CORS_ORIGIN && origin !== "null"
+            ? { "access-control-allow-credentials": "true" }
+            : {}),
           "access-control-max-age": "86400",
         },
       });
@@ -82,6 +89,10 @@ export default {
     // Handle the new multi-developer API.
     const v2Response = await handleV2(request, env);
     if (v2Response) return v2Response;
+
+    if (!url.pathname.startsWith("/v1/") && env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
 
     // Original V1 API remains available.
     if (request.method === "GET" && url.pathname === "/v1/health") {
@@ -119,11 +130,15 @@ export default {
       const robloxUserId =
         typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
 
+      const invalidRobloxUserId =
+        typeof body.robloxUserId !== "string" ||
+        !/^[0-9]{1,24}$/.test(robloxUserId);
+
       if (
         key.length < 20 ||
         key.length > 100 ||
         !/^[0-9]+$/.test(universeId) ||
-        !/^[0-9]{1,24}$/.test(robloxUserId)
+        invalidRobloxUserId
       ) {
         return json({ valid: false, reason: "invalid_request" }, 400, origin);
       }
@@ -140,13 +155,15 @@ export default {
       );
 
       const row = await env.DB.prepare(
-        "SELECT status, expires_at, allowed_universe_ids, key_hash, last_roblox_user_id FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL"
+        `SELECT status, expires_at, allowed_universe_ids, key_hash,
+           bound_roblox_user_id
+         FROM keys WHERE (key_hash = ? OR key_hash = ?) AND developer_id IS NULL`
       ).bind(keyHash, legacyHash).first<{
         status: string;
         expires_at: number;
         allowed_universe_ids: string | null;
         key_hash: string;
-        last_roblox_user_id: string | null;
+        bound_roblox_user_id: string | null;
       }>();
 
       if (!row || row.status !== "active") {
@@ -157,7 +174,7 @@ export default {
 
       if (row.expires_at <= now) {
         await env.DB.prepare(
-          "UPDATE keys SET status = 'expired' WHERE key_hash = ?1"
+          "UPDATE keys SET status = 'expired' WHERE key_hash = ?"
         ).bind(row.key_hash).run();
 
         return json({ valid: false, reason: "expired" }, 401, origin);
@@ -169,23 +186,42 @@ export default {
         return json({ valid: false, reason: "game_not_allowed" }, 403, origin);
       }
 
-      // Atomically bind legacy V1 licenses to their first Roblox user too.
-      // The developer_id IS NULL guard keeps this compatibility route scoped to V1 keys.
-      const binding = await env.DB.prepare(
-        "UPDATE keys SET last_used_at = ?1, last_roblox_user_id = ?2 " +
-        "WHERE key_hash = ?3 AND developer_id IS ?4 AND status = 'active' " +
-        "AND (last_roblox_user_id IS NULL OR last_roblox_user_id = ?5)"
-      ).bind(now, robloxUserId, row.key_hash, null, robloxUserId).run();
+      if (row.bound_roblox_user_id && row.bound_roblox_user_id !== robloxUserId) {
+        return json({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+      }
 
-      if (binding.meta.changes === 0) {
-        return json({ valid: false, reason: "roblox_user_mismatch" }, 403, origin);
+      const validation = await env.DB.prepare(
+        `UPDATE keys
+         SET last_used_at = ?, last_roblox_user_id = ?,
+             bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?)
+         WHERE key_hash = ? AND developer_id IS NULL AND status = 'active'
+           AND expires_at > ?
+           AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?)`
+      ).bind(now, robloxUserId, robloxUserId, row.key_hash, now, robloxUserId).run();
+
+      if (validation.meta.changes !== 1) {
+        const latest = await env.DB.prepare(
+          `SELECT status, expires_at, bound_roblox_user_id
+           FROM keys WHERE key_hash = ? AND developer_id IS NULL`
+        ).bind(row.key_hash).first<{
+          status: string;
+          expires_at: number;
+          bound_roblox_user_id: string | null;
+        }>();
+        if (latest?.bound_roblox_user_id && latest.bound_roblox_user_id !== robloxUserId) {
+          return json({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+        }
+        if (latest?.status === "active" && latest.expires_at <= now) {
+          return json({ valid: false, reason: "expired" }, 401, origin);
+        }
+        return json({ valid: false, reason: "invalid_or_revoked" }, 401, origin);
       }
 
       // Seamlessly upgrade legacy hash
       if (row.key_hash === legacyHash && keyHash !== legacyHash) {
         try {
           await env.DB.prepare(
-            "UPDATE keys SET key_hash = ?1 WHERE key_hash = ?2"
+            "UPDATE keys SET key_hash = ? WHERE key_hash = ?"
           ).bind(keyHash, legacyHash).run();
         } catch {
           // Ignore migration conflicts
@@ -239,19 +275,20 @@ export default {
 
       const results = await env.DB.batch([
         env.DB.prepare(
-          "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active' AND created_at <= ?2 AND developer_id IS NULL"
+          "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ? AND status = 'active' AND created_at <= ? AND developer_id IS NULL"
         ).bind(discordUserId, now - 86400),
 
         env.DB.prepare(
           "INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids) " +
-          "SELECT ?1, ?2, 'active', ?3, ?4, ?5 WHERE NOT EXISTS (" +
-          "SELECT 1 FROM keys WHERE discord_user_id = ?2 AND created_at > ?6 AND developer_id IS NULL)"
+          "SELECT ?, ?, 'active', ?, ?, ? WHERE NOT EXISTS (" +
+          "SELECT 1 FROM keys WHERE discord_user_id = ? AND created_at > ? AND developer_id IS NULL)"
         ).bind(
           keyHash,
           discordUserId,
           now,
           expiresAt,
           universeIds.join(","),
+          discordUserId,
           now - 86400
         ),
       ]);
@@ -286,10 +323,10 @@ export default {
 
       const result = key
         ? await env.DB.prepare(
-            "UPDATE keys SET status = 'revoked' WHERE (key_hash = ?1 OR key_hash = ?2) AND status = 'active' AND developer_id IS NULL"
+            "UPDATE keys SET status = 'revoked' WHERE (key_hash = ? OR key_hash = ?) AND status = 'active' AND developer_id IS NULL"
           ).bind(keyHash, legacyHash).run()
         : await env.DB.prepare(
-            "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active' AND developer_id IS NULL"
+            "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ? AND status = 'active' AND developer_id IS NULL"
           ).bind(discordUserId).run();
 
       return json({ revoked: result.meta.changes > 0 }, 200, origin);

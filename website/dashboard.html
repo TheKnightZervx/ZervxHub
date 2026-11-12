@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="description" content="Manage your ZervxHub developer account, approved games, and licenses.">
+  <title>Developer dashboard | ZervxHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+  <script src="dashboard.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
+      <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
+      <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
+        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="dashboard.html" aria-current="page">Dashboard</a>
+      </nav>
+      <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="page-intro">
+      <p class="eyebrow">Developer workspace</p>
+      <h1>Your account, games, and licenses.</h1>
+      <p>Sign in with Discord. Dashboard sessions are held in a secure, HttpOnly cookie; your Discord or API credentials are never saved in browser storage.</p>
+    </section>
+
+    <section class="notice notice-caution" id="sign-in-panel" aria-labelledby="sign-in-heading">
+      <h2 id="sign-in-heading">Developer sign-in</h2>
+      <p id="auth-message" role="status" aria-live="polite">Checking whether sign-in is configured...</p>
+      <a class="button button-primary" id="sign-in-link" href="/v2/auth/discord/start" hidden>Continue with Discord</a>
+      <p id="auth-setup-help" hidden>Discord sign-in is not enabled for this deployment. The operator must configure the Discord OAuth application and same-origin dashboard settings before accounts can be created.</p>
+    </section>
+
+    <div id="dashboard-app" hidden>
+      <div class="dashboard-toolbar">
+        <p id="developer-greeting"></p>
+        <button class="button button-outline" id="logout-button" type="button">Sign out</button>
+      </div>
+      <p class="dashboard-status" id="dashboard-status" role="status" aria-live="polite"></p>
+
+      <section class="section dashboard-section" aria-labelledby="overview-heading">
+        <div class="section-heading dashboard-heading">
+          <p class="eyebrow">Overview</p>
+          <h2 id="overview-heading">Account activity</h2>
+        </div>
+        <div class="metric-grid">
+          <article class="metric-card"><span>Subscription</span><strong id="metric-plan">Free</strong><small id="metric-subscription-status">Active</small></article>
+          <article class="metric-card"><span>Games</span><strong id="metric-games">0</strong><small id="metric-games-detail">0 approved</small></article>
+          <article class="metric-card"><span>Active licenses</span><strong id="metric-licenses">0</strong><small id="metric-licenses-detail">0 total</small></article>
+          <article class="metric-card"><span>Validations</span><strong id="metric-validations">0</strong><small>Last 30 days</small></article>
+        </div>
+        <div class="dashboard-columns">
+          <section class="dashboard-card" aria-labelledby="activity-heading">
+            <h3 id="activity-heading">Recent activity</h3>
+            <ol class="activity-list" id="activity-list"></ol>
+          </section>
+          <section class="dashboard-card" aria-labelledby="account-heading">
+            <h3 id="account-heading">Account</h3>
+            <dl class="account-list">
+              <div><dt>Developer</dt><dd id="account-name"></dd></div>
+              <div><dt>Discord account</dt><dd id="account-discord"></dd></div>
+              <div><dt>Developer ID</dt><dd id="account-id"></dd></div>
+            </dl>
+          </section>
+        </div>
+      </section>
+
+      <section class="section dashboard-section" aria-labelledby="api-key-heading">
+        <div class="dashboard-section-title"><div><p class="eyebrow">Credentials</p><h2 id="api-key-heading">Developer API key</h2></div></div>
+        <div class="dashboard-card">
+          <p>Keys are shown once after rotation. Rotating immediately revokes every existing developer API key for this account.</p>
+          <ul class="plain-list" id="api-key-list"></ul>
+          <button class="button button-outline" id="rotate-api-key" type="button">Rotate API key</button>
+          <p class="one-time-secret" id="api-key-result" hidden></p>
+        </div>
+      </section>
+
+      <section class="section dashboard-section" aria-labelledby="games-heading">
+        <div class="dashboard-section-title"><div><p class="eyebrow">Ownership</p><h2 id="games-heading">Games and universes</h2></div></div>
+        <div class="dashboard-columns">
+          <section class="dashboard-card">
+            <h3>Register a game</h3>
+            <p>Registration is pending until an administrator verifies the Roblox Universe ID.</p>
+            <form id="game-form" class="dashboard-form">
+              <label>Game name<input name="name" required maxlength="100" autocomplete="off"></label>
+              <label>Roblox Universe ID<input name="universeId" required inputmode="numeric" pattern="[0-9]{1,22}" maxlength="22"></label>
+              <button class="button button-primary" type="submit">Register game</button>
+            </form>
+          </section>
+          <section class="dashboard-card">
+            <h3>Your registered games</h3>
+            <div class="table-wrap">
+              <table><thead><tr><th>Game</th><th>Universe</th><th>Status</th></tr></thead><tbody id="game-list"></tbody></table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="section dashboard-section" aria-labelledby="licenses-heading">
+        <div class="dashboard-section-title"><div><p class="eyebrow">Customer access</p><h2 id="licenses-heading">License management</h2></div></div>
+        <div class="dashboard-columns">
+          <section class="dashboard-card">
+            <h3>Create a license</h3>
+            <p>Only approved games can issue licenses. The raw license key is returned once and never stored.</p>
+            <form id="license-form" class="dashboard-form">
+              <label>Customer Discord user ID<input name="discordUserId" required inputmode="numeric" pattern="[0-9]{15,22}" maxlength="22"></label>
+              <label>Approved game<select name="universeId" required id="license-game-select"><option value="">Select a game</option></select></label>
+              <label>Expires in hours<input name="expiresInHours" type="number" required min="1" max="8760" value="24"></label>
+              <button class="button button-primary" type="submit">Create license</button>
+            </form>
+            <p class="one-time-secret" id="license-result" hidden></p>
+          </section>
+          <section class="dashboard-card">
+            <h3>Issued licenses</h3>
+            <div class="table-wrap">
+              <table><thead><tr><th>Customer</th><th>Game</th><th>Status</th><th>Expires</th><th>Roblox account</th><th>Usage</th><th>Actions</th></tr></thead><tbody id="license-list"></tbody></table>
+            </div>
+          </section>
+        </div>
+      </section>
+
+      <section class="section dashboard-section" aria-labelledby="subscription-heading">
+        <div class="dashboard-section-title"><div><p class="eyebrow">Plan and usage</p><h2 id="subscription-heading">Subscription</h2></div></div>
+        <div class="dashboard-card">
+          <p id="subscription-summary"></p>
+          <form id="subscription-form" class="dashboard-form dashboard-subscription-form">
+            <label>Plan<select name="plan" id="plan-select"><option value="starter">Starter</option><option value="pro">Pro</option><option value="business">Business</option><option value="free">Free</option></select></label>
+            <label>Billing period<select name="billingPeriod" id="billing-period"><option value="monthly">Monthly</option><option value="yearly">Yearly</option><option value="none">No billing (Free)</option></select></label>
+            <button class="button button-outline" type="submit">Request plan change</button>
+          </form>
+          <p id="pending-subscription-request" hidden></p>
+          <button class="button button-outline" id="cancel-subscription-request" type="button" hidden>Cancel pending request</button>
+          <button class="button button-outline" id="request-subscription-cancel" type="button" hidden>Request subscription cancellation</button>
+          <p class="dashboard-note">Payments are not enabled. Requests do not change your plan or grant paid access; no payment is taken.</p>
+        </div>
+      </section>
+
+      <section class="section dashboard-section" aria-labelledby="help-heading">
+        <div class="callout">
+          <div><p class="eyebrow">Need help?</p><h2 id="help-heading">Guides and support</h2><p>Review the integration guide before changing production credentials.</p></div>
+          <div class="actions"><a class="button button-primary" href="docs.html">Documentation</a><a class="button button-outline" href="support.html">Support</a></div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

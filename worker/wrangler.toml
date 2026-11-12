@@ -8,3 +8,8 @@ binding = "DB"
 database_name = "zervxhub-db"
 database_id = "2c69a04d-f4eb-4bec-a8f2-0e1edb47179d"
 migrations_dir = "migrations"
+
+[assets]
+directory = "../website"
+binding = "ASSETS"
+run_worker_first = true

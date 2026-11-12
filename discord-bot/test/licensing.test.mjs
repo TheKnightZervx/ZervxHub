@@ -1,6 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { filterGameChoices, guildIdsFromEnv, issueReply, revokeReply } from "../src/licensing.js";
+import {
+  filterGameChoices,
+  guildIdsFromEnv,
+  issueReply,
+  parseWorkerResponse,
+  revokeReply,
+} from "../src/licensing.js";
 
 test("game autocomplete stays inside Discord's choice limit", () => {
   const games = Array.from({ length: 30 }, (_, index) => ({
@@ -39,4 +45,16 @@ test("guild configuration accepts one server or a list and rejects junk", () => 
   ]);
   assert.throws(() => guildIdsFromEnv("not-a-guild", ""));
   assert.throws(() => guildIdsFromEnv("", ""));
+});
+
+test("Worker responses must be valid JSON objects rather than success-shaped fallbacks", async () => {
+  assert.deepEqual(await parseWorkerResponse(new Response('{"games":[]}')), { games: [] });
+  await assert.rejects(
+    parseWorkerResponse(new Response("upstream error")),
+    /Worker response was not valid JSON/
+  );
+  await assert.rejects(
+    parseWorkerResponse(new Response("[]")),
+    /Worker response must be a JSON object/
+  );
 });

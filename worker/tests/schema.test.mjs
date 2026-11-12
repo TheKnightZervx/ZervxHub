@@ -12,11 +12,54 @@ async function createDatabase() {
     "0000_initial_keys.sql",
     "0001_multi_developer_foundation.sql",
     "0002_lookup_indexes.sql",
+    "0003_dashboard_accounts_and_subscriptions.sql",
+    "0004_license_account_binding.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
   }
   return db;
 }
+
+function schemaShape(db) {
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+  ).all();
+
+  return tables.map(({ name }) => ({
+    name,
+    columns: db.prepare(`PRAGMA table_info("${name}")`).all().map((column) => [
+      column.name,
+      column.type,
+      column.notnull,
+      column.dflt_value,
+      column.pk,
+    ]),
+    foreignKeys: db.prepare(`PRAGMA foreign_key_list("${name}")`).all().map((key) => [
+      key.table,
+      key.from,
+      key.to,
+      key.on_update,
+      key.on_delete,
+    ]),
+    indexes: db.prepare(`PRAGMA index_list("${name}")`).all()
+      .map((index) => ({
+        name: index.name,
+        unique: index.unique,
+        columns: db.prepare(`PRAGMA index_info("${index.name}")`).all().map((column) => column.name),
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name)),
+  }));
+}
+
+test("consolidated schema snapshot matches the migration chain", async () => {
+  const migrated = await createDatabase();
+  const snapshot = new DatabaseSync(":memory:");
+  snapshot.exec(await readFile(fileURLToPath(new URL("../schema.sql", import.meta.url)), "utf8"));
+
+  assert.deepEqual(schemaShape(snapshot), schemaShape(migrated));
+  snapshot.close();
+  migrated.close();
+});
 
 test("migrations create isolated developer, game, and license tables", async () => {
   const db = await createDatabase();
@@ -25,10 +68,15 @@ test("migrations create isolated developer, game, and license tables", async () 
   ).all().map((row) => row.name);
   assert.deepEqual(tables, [
     "developer_api_keys",
+    "developer_sessions",
+    "developer_subscriptions",
     "developers",
     "discord_integrations",
     "games",
     "keys",
+    "license_events",
+    "license_validation_daily",
+    "subscription_change_requests",
   ]);
 
   const indexes = db.prepare(
@@ -37,6 +85,8 @@ test("migrations create isolated developer, game, and license tables", async () 
   assert.ok(indexes.includes("idx_keys_developer_discord_created"));
   assert.ok(indexes.includes("idx_games_developer"));
   assert.ok(indexes.includes("idx_discord_integrations_developer"));
+  assert.ok(indexes.includes("idx_developer_sessions_developer"));
+  assert.ok(indexes.includes("idx_license_validation_developer_date"));
 
   db.prepare(
     "INSERT INTO developers (id, discord_user_id, display_name, status, created_at) VALUES (?, ?, ?, 'active', ?)"
@@ -80,34 +130,44 @@ test("migrations create isolated developer, game, and license tables", async () 
   db.close();
 });
 
-test("consolidated schema.sql matches the final migration table and index set", async () => {
+test("dashboard migration preserves existing rows and backfills public identifiers", async () => {
   const db = new DatabaseSync(":memory:");
-  const snapshot = new URL("../schema.sql", import.meta.url);
-  db.exec(await readFile(fileURLToPath(snapshot), "utf8"));
-
-  const tables = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
-  ).all().map((row) => row.name);
-  assert.deepEqual(tables, [
-    "developer_api_keys",
-    "developers",
-    "discord_integrations",
-    "games",
-    "keys",
-  ]);
-
-  const columns = db.prepare("PRAGMA table_info(keys)").all().map((row) => row.name);
-  assert.ok(columns.includes("developer_id"));
-
-  const indexes = db.prepare(
-    "SELECT name FROM sqlite_master WHERE type = 'index' AND name LIKE 'idx_%'"
-  ).all().map((row) => row.name);
   for (const name of [
-    "idx_keys_developer_discord_created",
-    "idx_games_developer",
-    "idx_discord_integrations_developer",
-  ]) assert.ok(indexes.includes(name), `Missing index: ${name}`);
+    "0000_initial_keys.sql",
+    "0001_multi_developer_foundation.sql",
+    "0002_lookup_indexes.sql",
+  ]) {
+    db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
+  }
+  db.prepare(
+    "INSERT INTO developers (id, discord_user_id, display_name, status, created_at) VALUES (?, ?, ?, 'active', ?)"
+  ).run("existing-developer", "111111111111111", "Existing", 10);
+  db.prepare(
+    "INSERT INTO developer_api_keys (key_hash, developer_id, created_at) VALUES (?, ?, ?)"
+  ).run("existing-api-hash", "existing-developer", 11);
+  db.prepare(
+    `INSERT INTO keys
+       (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids,
+        last_roblox_user_id, developer_id)
+     VALUES (?, ?, 'active', ?, ?, ?, ?, ?)`
+  ).run("existing-license-hash", "222222222222222", 12, 100, "12345", "987654321", "existing-developer");
 
+  db.exec(await readFile(fileURLToPath(migrationUrl("0003_dashboard_accounts_and_subscriptions.sql")), "utf8"));
+  db.exec(await readFile(fileURLToPath(migrationUrl("0004_license_account_binding.sql")), "utf8"));
+  const apiKey = db.prepare(
+    "SELECT developer_id, public_id FROM developer_api_keys WHERE key_hash = ?"
+  ).get("existing-api-hash");
+  const license = db.prepare(
+    "SELECT developer_id, public_id, validation_count, status, last_roblox_user_id, bound_roblox_user_id FROM keys WHERE key_hash = ?"
+  ).get("existing-license-hash");
+  assert.equal(apiKey.developer_id, "existing-developer");
+  assert.match(apiKey.public_id, /^[a-f0-9]{32}$/);
+  assert.equal(license.developer_id, "existing-developer");
+  assert.match(license.public_id, /^[a-f0-9]{32}$/);
+  assert.equal(license.validation_count, 0);
+  assert.equal(license.status, "active");
+  assert.equal(license.last_roblox_user_id, "987654321");
+  assert.equal(license.bound_roblox_user_id, "987654321");
   db.close();
 });
 
@@ -119,16 +179,19 @@ test("legacy license binding SQL atomically locks a key to its first Roblox user
   ).run("legacy-binding-hash", "333333333333333", 1, 9999999999, "12345");
 
   const bind = db.prepare(
-    `UPDATE keys SET last_used_at = ?, last_roblox_user_id = ?
-     WHERE key_hash = ? AND developer_id IS ? AND status = 'active'
-       AND (last_roblox_user_id IS NULL OR last_roblox_user_id = ?)`
+    `UPDATE keys
+     SET last_used_at = ?, last_roblox_user_id = ?,
+         bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?)
+     WHERE key_hash = ? AND developer_id IS NULL AND status = 'active'
+       AND expires_at > ?
+       AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?)`
   );
 
-  assert.equal(bind.run(2, "333333333333333", "legacy-binding-hash", null, "333333333333333").changes, 1);
-  assert.equal(bind.run(3, "444444444444444", "legacy-binding-hash", null, "444444444444444").changes, 0);
+  assert.equal(bind.run(2, "333333333333333", "333333333333333", "legacy-binding-hash", 2, "333333333333333").changes, 1);
+  assert.equal(bind.run(3, "444444444444444", "444444444444444", "legacy-binding-hash", 3, "444444444444444").changes, 0);
   assert.equal(
-    db.prepare("SELECT last_roblox_user_id FROM keys WHERE key_hash = ?")
-      .get("legacy-binding-hash").last_roblox_user_id,
+    db.prepare("SELECT bound_roblox_user_id FROM keys WHERE key_hash = ?")
+      .get("legacy-binding-hash").bound_roblox_user_id,
     "333333333333333",
   );
   db.close();

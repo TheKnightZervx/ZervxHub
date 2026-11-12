@@ -89,6 +89,7 @@ local function verify(player, submittedKey)
         expired = "Key has expired.",
         game_not_allowed = "This game is not authorized for ZervxHub.",
         roblox_user_mismatch = "This key is already linked to another Roblox account.",
+        license_bound_to_another_user = "This license is already bound to another Roblox account.",
         developer_suspended = "ZervxHub access for this game is paused.",
         invalid_request = "Key request is invalid.",
         rate_limited = "Too many attempts. Wait a minute.",

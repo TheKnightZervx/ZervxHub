@@ -83,6 +83,7 @@ class MockD1 {
                 allowed_universe_ids: key.allowedUniverseIds,
                 developer_id: key.developerId,
                 key_hash: key.keyHash || hash1,
+                bound_roblox_user_id: key.boundRobloxUserId ?? null,
               }
             : null;
         }
@@ -96,6 +97,7 @@ class MockD1 {
                 expires_at: key.expiresAt,
                 allowed_universe_ids: key.allowedUniverseIds,
                 key_hash: key.keyHash || hash1,
+                bound_roblox_user_id: key.boundRobloxUserId ?? null,
               }
             : null;
         }
@@ -165,11 +167,24 @@ class MockD1 {
         }
 
         if (normalized.startsWith("UPDATE keys SET last_used_at")) {
-          const [lastUsedAt, robloxUserId, hash] = args;
+          const legacy = normalized.includes("developer_id IS NULL");
+          const [lastUsedAt, robloxUserId, boundUserId, hash] = args;
+          const developerId = legacy ? null : args[4];
+          const expiresAt = args[legacy ? 4 : 5];
+          const expectedBoundUserId = args[legacy ? 5 : 6];
           const key = db.keys.get(hash);
-          if (key) {
+          if (
+            key &&
+            (legacy
+              ? key.developerId == null
+              : key.developerId === developerId) &&
+            key.status === "active" &&
+            key.expiresAt > expiresAt &&
+            (!key.boundRobloxUserId || key.boundRobloxUserId === expectedBoundUserId)
+          ) {
             key.lastUsedAt = lastUsedAt;
             key.lastRobloxUserId = robloxUserId;
+            key.boundRobloxUserId = boundUserId;
             return { meta: { changes: 1 } };
           }
           return { meta: { changes: 0 } };

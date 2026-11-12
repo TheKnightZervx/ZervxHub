@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="description" content="Developer onboarding, Discord bot, licensing API, and Roblox server integration guides for ZervxHub.">
+  <title>Documentation | ZervxHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
+      <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
+      <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
+        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html" aria-current="page">Documentation</a><a href="support.html">Support</a><a href="dashboard.html">Dashboard</a>
+      </nav>
+      <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="page-intro">
+      <p class="eyebrow">Developer documentation</p>
+      <h1>Understand the flow before you deploy.</h1>
+      <p>ZervxHub is source code, not a hosted service. These guides describe the current implementation and the configuration an authorized project owner must provide.</p>
+    </section>
+
+    <section class="content-section">
+      <div class="notice notice-caution">
+        <strong>Never put a private credential in a Roblox client or public repository.</strong>
+        <p>Keep Worker secrets and developer API keys in the server or trusted host that needs them. Never share raw license keys in public support requests.</p>
+      </div>
+
+      <h2 id="developer-setup">Developer onboarding</h2>
+      <ol>
+        <li>Review the <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/blob/mission3-base/docs/DEPLOYMENT.md">deployment checklist</a> and confirm you control the Roblox experience and Discord server.</li>
+        <li>Open the <a class="text-link" href="dashboard.html">developer dashboard</a> and sign in with Discord. The first successful sign-in creates a developer account when OAuth is enabled for the deployment.</li>
+        <li>Generate or rotate your developer API key from the dashboard. It is shown once; store it in a password manager and only use it from your trusted backend.</li>
+        <li>Register your Roblox Universe ID and a display name using the developer API. The game stays pending until an administrator reviews and approves it.</li>
+        <li>Connect your Discord guild with administrator credentials, then configure the bot. The bot uses its own service token and resolves access through the guild-to-developer integration.</li>
+      </ol>
+      <p>Use the exact API routes and environment names in the repository documentation. Do not copy real credentials into tickets, screenshots, scripts, or chat messages.</p>
+      <p>Operators should follow the <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/blob/mission3-base/docs/DEVELOPER_ONBOARDING.md">account lifecycle guide</a> and <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/blob/mission3-base/docs/DEPLOYMENT.md">OAuth deployment configuration</a>.</p>
+
+      <h2 id="discord-setup">Discord bot</h2>
+      <ul>
+        <li>Create a Discord application and invite the bot with the application-command scope.</li>
+        <li>Set the bot token, application ID, configured guild ID, Worker URL, and bot service token in the hosting provider's secret variables.</li>
+        <li>Set the matching bot API token as a Worker secret. Do not use the Worker admin token as the bot token.</li>
+        <li><code class="inline-code">/getkey</code> returns a key privately. <code class="inline-code">/revoke-key</code> requires Manage Server permission.</li>
+      </ul>
+      <p>Commands require an active integration and approved game. Details are in the <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/tree/mission3-base/discord-bot">bot source and setup files</a>.</p>
+
+      <h2 id="roblox-setup">Roblox server integration</h2>
+      <ol>
+        <li>Install <code class="inline-code">roblox/ZervxHubKeyServer.server.lua</code> as a Script in ServerScriptService.</li>
+        <li>Replace the Worker URL placeholder with the URL of your own configured deployment. Do not put an admin, bot, or developer token in this script.</li>
+        <li>Enable HTTP requests in Roblox Studio for the experience and verify that the Worker allows the exact Universe ID.</li>
+        <li>Install <code class="inline-code">roblox/ZervxHubKeyPrompt.client.lua</code> as a LocalScript in StarterPlayerScripts.</li>
+        <li>Gate protected server-side actions on the server-controlled <code class="inline-code">ZervxHubAuthorized</code> player attribute. A client interface is not an authorization boundary.</li>
+      </ol>
+      <p>Roblox Studio testing has not been performed as part of this repository verification. Follow <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/blob/mission3-base/docs/ROBLOX_INTEGRATION.md">the Roblox server integration guide</a> and test in a private experience you control.</p>
+
+      <h2 id="key-lifecycle">License lifecycle</h2>
+      <p>Dashboard-created licenses are scoped to one approved universe, have a configurable one-hour to one-year expiration, and can be revoked. The first successful validation binds a license to that Roblox account; validation counts and daily history are recorded without storing raw license keys. See <a class="text-link" href="pricing.html">current pricing and access status</a>.</p>
+
+      <h2 id="security">Security and operational boundaries</h2>
+      <ul>
+        <li>New credentials are HMAC-SHA-256 hashed with a Worker pepper before storage.</li>
+        <li>API access is scoped to a developer, approved game, and configured Discord guild.</li>
+        <li>Dashboard sessions use a random opaque token in an HttpOnly, Secure, SameSite=Lax cookie; only a peppered HMAC is stored in D1.</li>
+        <li>Rate limits in the Worker are per isolate; production operators must configure edge-level limits as described in deployment guidance.</li>
+        <li>Use a staging Worker and local D1 for testing. Review migrations before manually applying them to a remote database.</li>
+      </ul>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

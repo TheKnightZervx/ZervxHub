@@ -8,11 +8,15 @@
     "db:local": "wrangler d1 migrations apply zervxhub-db --local",
     "db:remote": "node -e \"console.error('Remote database changes need your approval. See docs/DEPLOYMENT.md'); process.exit(1)\"",
     "typecheck": "tsc --noEmit",
-    "test": "node --test --test-concurrency=1 tests/*.test.mjs"
+    "test": "node --experimental-sqlite --test --test-concurrency=1 tests/*.test.mjs"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261110.1",
     "typescript": "^5.9.3",
-    "wrangler": "^4.45.0"
+    "wrangler": "^4.45.0",
+    "esbuild": "^0.28.2"
+  },
+  "engines": {
+    "node": ">=22.12.0"
   }
 }

@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="description" content="ZervxHub setup troubleshooting, security guidance, and support channels.">
+  <title>Support | ZervxHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
+      <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
+      <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
+        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html" aria-current="page">Support</a><a href="dashboard.html">Dashboard</a>
+      </nav>
+      <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="page-intro">
+      <p class="eyebrow">Help and troubleshooting</p>
+      <h1>Find the cause. Keep credentials private.</h1>
+      <p>Use these checks for a self-hosted development setup. There is no staffed support desk or service-level commitment at this time.</p>
+    </section>
+
+    <section class="content-section">
+      <div class="support-grid">
+        <article class="support-card">
+          <h2>Key rejected or expired</h2>
+          <ol>
+            <li>Confirm the key was issued for this member and is still within its configured expiration period.</li>
+            <li>Check that the Roblox Universe ID is registered, approved, and allowed for the key.</li>
+            <li>Confirm the developer is active and the key has not been revoked.</li>
+            <li>Check the Worker's logs privately for database or configuration errors.</li>
+          </ol>
+        </article>
+        <article class="support-card">
+          <h2>Discord bot cannot issue keys</h2>
+          <ol>
+            <li>Verify the guild ID and active guild-to-developer integration.</li>
+            <li>Confirm the selected game is approved for that developer.</li>
+            <li>Check that the bot and Worker use the same dedicated bot API token.</li>
+            <li>Check bot hosting logs for startup errors without printing environment values.</li>
+          </ol>
+        </article>
+        <article class="support-card">
+          <h2>Roblox cannot reach the API</h2>
+          <ol>
+            <li>Enable HTTP requests in the experience's Studio security settings.</li>
+            <li>Verify the server script's Worker URL and the Worker's configured Universe IDs.</li>
+            <li>Keep the request in a server Script; never move the API call or credentials into the LocalScript.</li>
+            <li>Test in a private experience you control before enabling players.</li>
+          </ol>
+        </article>
+        <article class="support-card">
+          <h2>Dashboard sign-in or session issue</h2>
+          <ol>
+            <li>Open the dashboard from the same HTTPS Worker origin that serves the API.</li>
+            <li>Confirm the operator configured Discord OAuth, the exact callback URI, and <code class="inline-code">CORS_ORIGIN</code>.</li>
+            <li>Sign out and sign in again if the seven-day session has expired.</li>
+            <li>Account access follows the connected Discord identity; ZervxHub does not provide password or email recovery.</li>
+          </ol>
+        </article>
+        <article class="support-card">
+          <h2>Configuration or database issue</h2>
+          <ol>
+            <li>Check that required Worker secrets are configured and non-empty.</li>
+            <li>Review pending migrations and apply them to the intended database only after review.</li>
+            <li>Confirm the Discord bot's URL uses HTTPS outside local development.</li>
+            <li>Do not paste tokens, raw keys, or database credentials into public issue reports.</li>
+          </ol>
+        </article>
+      </div>
+
+      <div class="notice notice-caution top-gap">
+        <strong>Support is currently community-based.</strong>
+        <p>Use the project repository to report a reproducible issue. GitHub issue reports may be public: include versions, sanitized logs, and steps to reproduce, but remove all secrets and personal data. Do not submit payment; no paid service exists.</p>
+      </div>
+      <div class="actions top-gap">
+        <a class="button button-primary" href="https://github.com/TheKnightZervx/ZervxHub/issues">Project issues</a>
+        <a class="button button-outline" href="docs.html">Read documentation</a>
+      </div>
+      <p class="support-disclaimer">Read the <a class="text-link" href="https://github.com/TheKnightZervx/ZervxHub/blob/mission3-base/docs/SUPPORT.md">issue reporting and credential incident guide</a>. No production deployment, Roblox Studio test, or staffed support channel is represented by this website.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

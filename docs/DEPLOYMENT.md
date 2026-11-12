@@ -6,30 +6,30 @@ Use **Node.js 22.12 or newer**. The Worker CI schema tests use Node's built-in `
 
 ## Cloudflare Worker + D1
 
-1. From the repository root, enter `worker/` and install the locked dependencies with `npm ci`.
-2. Create a D1 database if you do not already have one: `npx wrangler d1 create zervxhub-db`.
-3. Put the returned database ID in `worker/wrangler.toml`. The repository currently contains a database ID; verify it belongs to your Cloudflare account before using it.
-4. Review the pending SQL migrations in `worker/migrations/`. **Remote database changes are intentionally not run by the `db:remote` npm script.** After confirming the account, database name, and migration contents, apply them explicitly with:
-   `npx wrangler d1 migrations apply zervxhub-db --remote`
-5. Set strong secrets using Wrangler:
-   - `npx wrangler secret put ADMIN_TOKEN` (administrative API operations)
+1. Install Node.js 22.12+ and run `npm ci` inside `worker/` to install the locked dependencies.
+2. Create a D1 database if needed: `npx wrangler d1 create zervxhub-db`.
+3. Put the returned database ID in `worker/wrangler.toml`. Verify any existing ID belongs to your Cloudflare account. The Worker serves the `website/` directory as same-origin static assets.
+4. Review the pending SQL migrations. Remote changes are intentionally not run by the `db:remote` package script; it exits as a safety guard. After confirming the Cloudflare account, database, and migration contents, apply them explicitly from `worker/` with `npx wrangler d1 migrations apply zervxhub-db --remote`. The account-binding migration backfills each license's binding from its last recorded Roblox account; never-used licenses bind on their next successful validation.
+5. Set `CORS_ORIGIN` in Worker Variables to the exact HTTPS origin serving the Worker and dashboard, with no trailing slash.
+6. To enable developer sign-in, create a Discord OAuth2 application and set its redirect URI to `https://YOUR-WORKER/v2/auth/discord/callback`. Configure `DISCORD_OAUTH_CLIENT_ID` and `DISCORD_OAUTH_REDIRECT_URI` as Worker Variables and `DISCORD_OAUTH_CLIENT_SECRET` as a Worker secret. Discord's `identify` scope is the only requested scope.
+7. Set strong secrets using Wrangler:
+   - `npx wrangler secret put ADMIN_TOKEN` (Worker administrative operations)
    - `npx wrangler secret put KEY_PEPPER` (high-entropy secret for HMAC-SHA-256 credential hashing)
-   - `npx wrangler secret put BOT_API_TOKEN` (private service credential used only by the Discord bot; it must be a different random value from `ADMIN_TOKEN`)
-6. Add your real comma-separated Roblox Universe IDs to `ALLOWED_UNIVERSE_IDS` in the Worker's Variables settings. Do not leave it empty; legacy V1 issuance and validation intentionally fail closed without this allowlist.
-7. From `worker/`, deploy with `npm run deploy`.
-8. Check `GET /v1/health` on the deployed Worker URL.
+   - `npx wrangler secret put BOT_API_TOKEN` (private credential used only by the Discord bot; use a different random value from `ADMIN_TOKEN`)
+8. Add real comma-separated Roblox Universe IDs to `ALLOWED_UNIVERSE_IDS`. Do not leave it empty; validation and legacy V1 issuance fail closed without this allowlist.
+9. Deploy with `npm run deploy`, then check `GET /v1/health` and confirm the website and `/dashboard.html` load from the same origin.
 
-Never publish the admin token, bot token, or key pepper. Store them in a password manager. Do not put them in Roblox scripts, client bundles, or a public repository. Keep a secure backup of `KEY_PEPPER`: changing it without a planned credential migration makes existing HMAC-hashed credentials fail validation.
+Never publish the admin token, bot token, or key pepper. Store them in a password manager; do not put them in Roblox scripts, client bundles, `wrangler.toml`, or a public repository. Keep a secure backup of `KEY_PEPPER`: changing it without a planned credential migration makes existing HMAC-hashed credentials fail validation.
 
 ## Bootstrap the developer and Discord server
 
 The V2 bot is tenant-scoped. Before the bot can issue keys, an administrator must create a developer and connect the Discord guild to that developer.
 
-1. Use `POST /v2/admin/developers` with the `x-admin-token` header and JSON containing the developer's Discord user ID and display name. Save the returned developer ID and API key securely; the API key is shown only once. Administrators can retrieve the latest 100 developer records with `GET /v2/admin/developers`.
-2. Use `POST /v2/admin/discord-integrations` with the `x-admin-token` header and JSON containing the Discord guild ID and developer ID.
+1. Use `POST /v2/admin/developers` with `x-admin-token` and the developer's Discord user ID and display name. Save the returned developer ID and API key securely; the key is shown only once. Administrators can retrieve the latest 100 developer records with `GET /v2/admin/developers`.
+2. Use `POST /v2/admin/discord-integrations` with `x-admin-token` and the Discord guild ID and developer ID.
 3. Review/approve the developer's registered Roblox Universe IDs through `POST /v2/admin/games/review` after the developer registers them with `POST /v2/games/register`.
 
-If a developer loses their API key, an administrator can issue a replacement with `POST /v2/admin/developer-keys/rotate` and the developer ID; this revokes all previous API keys for that developer. Do not give the developer API key or admin token to the Discord bot. The bot uses its separate BOT_API_TOKEN only.
+If a developer loses their API key, an administrator can use `POST /v2/admin/developer-keys/rotate`; this revokes all previous keys and returns a replacement once. Do not give the developer API key or admin token to the Discord bot. The bot uses only its separate `BOT_API_TOKEN`.
 
 ## Discord bot on Railway
 
@@ -63,7 +63,8 @@ Health check:
 curl https://YOUR-WORKER.workers.dev/v1/health
 ```
 
-Roblox calls `POST /v2/keys/validate` without an admin or bot secret. The JSON body contains `key`, `universeId`, and `robloxUserId`. The legacy `POST /v1/keys/validate` route also requires `robloxUserId` and binds each legacy license to the first Roblox account that successfully uses it; requests without a valid numeric UserId are rejected. The Discord bot uses `x-bot-token` for its V2 endpoints. Administrative V2 routes use `x-admin-token`.
+The Discord bot calls `POST /v2/discord/games`, `POST /v2/discord/keys/issue`, and `POST /v2/discord/keys/revoke` with the private `x-bot-token` header. It does not use the Worker admin token. The Roblox server calls `POST /v2/keys/validate` without an admin or developer secret. Validation expects `key`, `universeId`, and `robloxUserId` JSON fields.
+The legacy `POST /v1/keys/validate` route also requires a numeric `robloxUserId` and binds each legacy license to the first Roblox account that successfully uses it. Administrative V1 and V2 routes use `x-admin-token`.
 
 ## Before public launch
 
