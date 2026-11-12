@@ -2,9 +2,9 @@ name: ZervxHub CI
 
 on:
   pull_request:
-    branches: [main, mission3-base]
+    branches: [main, mission3-base, mission3-developer-studio-snippets]
   push:
-    branches: [main, mission3-base, "codex/**"]
+    branches: [main, mission3-base, mission3-developer-studio-snippets, "codex/**", "mission5-*"]
 
 jobs:
   worker:
@@ -65,7 +65,10 @@ jobs:
           test -s website/snippets.js
           test -s docs/DEVELOPER_STUDIO.md
           grep -q 'id="snippet-grid"' website/snippets.html
-          grep -q 'navigator.clipboard.writeText' website/snippets.js
-      - name: Ensure snippets are never executed
+          grep -q 'localStorage' website/snippets.js
+          grep -q 'new Worker' website/snippets.js
+          grep -q 'versions' website/snippets.js
+          grep -q 'exportWorkspace' website/snippets.js
+      - name: Ensure code is not evaluated in the page context
         run: |
           ! grep -nE 'eval[[:space:]]*\\(|new Function' website/snippets.js
