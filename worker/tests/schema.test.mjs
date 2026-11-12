@@ -18,6 +18,47 @@ async function createDatabase() {
   return db;
 }
 
+function schemaShape(db) {
+  const tables = db.prepare(
+    "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%' ORDER BY name"
+  ).all();
+
+  return tables.map(({ name }) => ({
+    name,
+    columns: db.prepare(`PRAGMA table_info("${name}")`).all().map((column) => [
+      column.name,
+      column.type,
+      column.notnull,
+      column.dflt_value,
+      column.pk,
+    ]),
+    foreignKeys: db.prepare(`PRAGMA foreign_key_list("${name}")`).all().map((key) => [
+      key.table,
+      key.from,
+      key.to,
+      key.on_update,
+      key.on_delete,
+    ]),
+    indexes: db.prepare(`PRAGMA index_list("${name}")`).all()
+      .map((index) => ({
+        name: index.name,
+        unique: index.unique,
+        columns: db.prepare(`PRAGMA index_info("${index.name}")`).all().map((column) => column.name),
+      }))
+      .sort((left, right) => left.name.localeCompare(right.name)),
+  }));
+}
+
+test("consolidated schema snapshot matches the migration chain", async () => {
+  const migrated = await createDatabase();
+  const snapshot = new DatabaseSync(":memory:");
+  snapshot.exec(await readFile(fileURLToPath(new URL("../schema.sql", import.meta.url)), "utf8"));
+
+  assert.deepEqual(schemaShape(snapshot), schemaShape(migrated));
+  snapshot.close();
+  migrated.close();
+});
+
 test("migrations create isolated developer, game, and license tables", async () => {
   const db = await createDatabase();
   const tables = db.prepare(

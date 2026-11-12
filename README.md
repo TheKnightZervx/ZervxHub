@@ -14,7 +14,7 @@ ZervxHub is a Roblox experience tooling project with a premium black-and-gold br
 This branch adds the first backend and product foundation. It is not production-ready until the owner configures real Roblox Universe IDs, Cloudflare D1, Worker secrets, Discord credentials, and completes the deployment checklist.
 
 ## Security model
-- Only SHA-256 hashes of license keys are stored in D1.
+- New license and developer API credentials are stored as HMAC-SHA-256 hashes using `KEY_PEPPER`; legacy SHA-256 hashes upgrade when used successfully.
 - Raw keys are returned once through an ephemeral Discord reply.
 - Key issuance and revocation require the Worker admin token.
 - Authorization is decided by a trusted server/backend, never a LocalScript.
