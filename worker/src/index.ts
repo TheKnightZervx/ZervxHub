@@ -1,5 +1,5 @@
 
-import { handleV2 } from "./v2";
+import { handleV2, parseJsonBody } from "./v2";
 import {
   isRateLimited,
   resetRateLimits,
@@ -96,12 +96,14 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
-    let body: Json;
-    try {
-      body = await request.json() as Json;
-    } catch {
+    const parsedBody = await parseJsonBody(request);
+    if (parsedBody.error === "too_large") {
+      return json({ error: "Request too large" }, 413, origin);
+    }
+    if (!parsedBody.data) {
       return json({ error: "Invalid JSON body" }, 400, origin);
     }
+    const body: Json = parsedBody.data;
 
     if (url.pathname === "/v1/keys/validate") {
       if (isRateLimited(request, "license-validation")) {
