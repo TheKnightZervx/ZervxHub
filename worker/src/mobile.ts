@@ -116,7 +116,7 @@ async function messagesFor(env: MobileEnv, conversationId: string, before: numbe
     `SELECT id, sender_id AS senderId, content, created_at AS createdAt
      FROM mobile_messages
      WHERE conversation_id = ? AND deleted_at IS NULL AND (? = 0 OR created_at < ?)
-     ORDER BY created_at DESC LIMIT ?`
+     ORDER BY created_at DESC, id DESC LIMIT ?`
   ).bind(conversationId, before, before, limit).all();
   return result.results.reverse();
 }
