@@ -463,6 +463,13 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   const oversized = await api.request("/v2/keys/validate", { body: { key: "x".repeat(20_000) } });
   assert.equal(oversized.status, 413);
 
+  const malformedV1 = await api.request("/v1/keys/validate", { body: "[]" });
+  assert.equal(malformedV1.status, 400);
+  const oversizedV1 = await api.request("/v1/keys/validate", {
+    body: JSON.stringify({ key: "x".repeat(20_000) }),
+  });
+  assert.equal(oversizedV1.status, 413);
+
   const developer = await createDeveloper(api, GUILD_1, "One");
   await registerApprovedGame(api, developer.apiKey, "12345", "Game");
   const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
