@@ -48,3 +48,31 @@ Proposed routes only; implement only after route schemas and D1 migrations have 
 
 ## Not yet implemented
 The Android UI currently presents disabled placeholders until matching server endpoints, storage authorization, realtime transport and tests exist. Do not show fake users, messages, prices, entitlements or payment success.
+
+
+## Implemented mobile backend routes
+
+The Worker now has a separate native-mobile API module. All protected routes use `Authorization: Bearer <opaque-session-token>`; the server derives the user identity from the stored token hash.
+
+| Method | Route | Capability |
+| --- | --- | --- |
+| POST | `/v2/mobile/auth/email/request-code` | Request passwordless email OTP |
+| POST | `/v2/mobile/auth/email/verify-code` | Verify one-time code and create session |
+| POST | `/v2/mobile/auth/session/refresh` | Rotate session token |
+| POST | `/v2/mobile/auth/session/logout` | Revoke current session |
+| POST | `/v2/mobile/auth/session/logout-all` | Revoke all user sessions |
+| GET | `/v2/mobile/account` | Read authenticated profile |
+| GET | `/v2/mobile/subscription` | Read connected subscription record; returns null until linked |
+| GET/POST | `/v2/mobile/chat/global/messages` | Global text and Unicode emoji |
+| GET | `/v2/mobile/chat/conversations` | List current user's direct/group conversations |
+| POST | `/v2/mobile/chat/direct` | Create or retrieve exactly-two-user conversation |
+| POST | `/v2/mobile/chat/groups` | Create private group with current memberships |
+| GET/POST | `/v2/mobile/chat/conversations/:id/messages` | Membership-checked private text messages |
+| POST | `/v2/mobile/chat/block` | Block a user |
+| POST | `/v2/mobile/chat/report` | Report abuse |
+
+Email delivery uses an optional `MAILER` Cloudflare service binding to `https://mailer.internal/send`. No binding is configured yet; without it, OTP requests return 503 and no verification code is generated. The delivery service must be reviewed and approved before use.
+
+The D1 schema is migration `0007_mobile_identity_and_chat.sql`. Apply it locally for development only. Do not run remote migrations from this branch.
+
+Private attachments, voice messages, WebRTC calls, video, and screen sharing remain explicitly disabled until private object storage, malware quarantine, upload grants, TURN/SFU reachability, mobile lifecycle behavior, and cost controls are verified. Global chat rejects media payloads by design.
