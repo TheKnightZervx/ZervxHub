@@ -16,7 +16,7 @@
       <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
       <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
       <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
-        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html" aria-current="page">Support</a>
+        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html" aria-current="page">Support</a><a href="dashboard.html">Dashboard</a>
       </nav>
       <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
     </div>
@@ -34,7 +34,7 @@
         <article class="support-card">
           <h2>Key rejected or expired</h2>
           <ol>
-            <li>Confirm the key was issued for this member and is still within its 24-hour validity period.</li>
+            <li>Confirm the key was issued for this member and is still within its configured expiration period.</li>
             <li>Check that the Roblox Universe ID is registered, approved, and allowed for the key.</li>
             <li>Confirm the developer is active and the key has not been revoked.</li>
             <li>Check the Worker's logs privately for database or configuration errors.</li>
@@ -56,6 +56,15 @@
             <li>Verify the server script's Worker URL and the Worker's configured Universe IDs.</li>
             <li>Keep the request in a server Script; never move the API call or credentials into the LocalScript.</li>
             <li>Test in a private experience you control before enabling players.</li>
+          </ol>
+        </article>
+        <article class="support-card">
+          <h2>Dashboard sign-in or session issue</h2>
+          <ol>
+            <li>Open the dashboard from the same HTTPS Worker origin that serves the API.</li>
+            <li>Confirm the operator configured Discord OAuth, the exact callback URI, and <code class="inline-code">CORS_ORIGIN</code>.</li>
+            <li>Sign out and sign in again if the seven-day session has expired.</li>
+            <li>Account access follows the connected Discord identity; ZervxHub does not provide password or email recovery.</li>
           </ol>
         </article>
         <article class="support-card">
@@ -84,7 +93,7 @@
   <footer class="site-footer">
     <div class="shell footer-inner">
       <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
-      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
     </div>
   </footer>
 </body>

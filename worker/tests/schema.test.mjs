@@ -12,6 +12,7 @@ async function createDatabase() {
     "0000_initial_keys.sql",
     "0001_multi_developer_foundation.sql",
     "0002_lookup_indexes.sql",
+    "0003_dashboard_accounts_and_subscriptions.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
   }
@@ -66,10 +67,15 @@ test("migrations create isolated developer, game, and license tables", async () 
   ).all().map((row) => row.name);
   assert.deepEqual(tables, [
     "developer_api_keys",
+    "developer_sessions",
+    "developer_subscriptions",
     "developers",
     "discord_integrations",
     "games",
     "keys",
+    "license_events",
+    "license_validation_daily",
+    "subscription_change_requests",
   ]);
 
   const indexes = db.prepare(
@@ -78,6 +84,8 @@ test("migrations create isolated developer, game, and license tables", async () 
   assert.ok(indexes.includes("idx_keys_developer_discord_created"));
   assert.ok(indexes.includes("idx_games_developer"));
   assert.ok(indexes.includes("idx_discord_integrations_developer"));
+  assert.ok(indexes.includes("idx_developer_sessions_developer"));
+  assert.ok(indexes.includes("idx_license_validation_developer_date"));
 
   db.prepare(
     "INSERT INTO developers (id, discord_user_id, display_name, status, created_at) VALUES (?, ?, ?, 'active', ?)"
@@ -118,5 +126,42 @@ test("migrations create isolated developer, game, and license tables", async () 
   assert.throws(() => {
     db.prepare("DELETE FROM developers WHERE id = ?").run("dev-1");
   });
+  db.close();
+});
+
+test("dashboard migration preserves existing rows and backfills public identifiers", async () => {
+  const db = new DatabaseSync(":memory:");
+  for (const name of [
+    "0000_initial_keys.sql",
+    "0001_multi_developer_foundation.sql",
+    "0002_lookup_indexes.sql",
+  ]) {
+    db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
+  }
+  db.prepare(
+    "INSERT INTO developers (id, discord_user_id, display_name, status, created_at) VALUES (?, ?, ?, 'active', ?)"
+  ).run("existing-developer", "111111111111111", "Existing", 10);
+  db.prepare(
+    "INSERT INTO developer_api_keys (key_hash, developer_id, created_at) VALUES (?, ?, ?)"
+  ).run("existing-api-hash", "existing-developer", 11);
+  db.prepare(
+    `INSERT INTO keys
+       (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids, developer_id)
+     VALUES (?, ?, 'active', ?, ?, ?, ?)`
+  ).run("existing-license-hash", "222222222222222", 12, 100, "12345", "existing-developer");
+
+  db.exec(await readFile(fileURLToPath(migrationUrl("0003_dashboard_accounts_and_subscriptions.sql")), "utf8"));
+  const apiKey = db.prepare(
+    "SELECT developer_id, public_id FROM developer_api_keys WHERE key_hash = ?"
+  ).get("existing-api-hash");
+  const license = db.prepare(
+    "SELECT developer_id, public_id, validation_count, status FROM keys WHERE key_hash = ?"
+  ).get("existing-license-hash");
+  assert.equal(apiKey.developer_id, "existing-developer");
+  assert.match(apiKey.public_id, /^[a-f0-9]{32}$/);
+  assert.equal(license.developer_id, "existing-developer");
+  assert.match(license.public_id, /^[a-f0-9]{32}$/);
+  assert.equal(license.validation_count, 0);
+  assert.equal(license.status, "active");
   db.close();
 });

@@ -16,7 +16,7 @@
       <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
       <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
       <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
-        <a href="index.html">Overview</a><a href="pricing.html" aria-current="page">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a>
+        <a href="index.html">Overview</a><a href="pricing.html" aria-current="page">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="dashboard.html">Dashboard</a>
       </nav>
       <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
     </div>
@@ -39,7 +39,7 @@
         <article class="price-card">
           <span class="price-state">In development</span>
           <h2>Free license keys</h2>
-          <p>The code supports administrator-configured, 24-hour keys for approved games.</p>
+          <p>The dashboard can issue keys for approved games with a configured expiration between one hour and one year.</p>
           <ul>
             <li>One active issuance per member during a 24-hour cooldown</li>
             <li>Validation is scoped to an approved Roblox universe</li>
@@ -48,15 +48,15 @@
           <p class="price-note">A working deployment, approved game, and connected Discord server are required. No hosted availability is promised.</p>
         </article>
         <article class="price-card">
-          <span class="price-state">Administrator provisioned</span>
+          <span class="price-state">Discord sign-in</span>
           <h2>Developer access</h2>
-          <p>There is no public signup form or self-service developer dashboard.</p>
+          <p>Developer accounts are created on first successful Discord sign-in when the operator has configured OAuth.</p>
           <ul>
-            <li>Developer credentials are created by an administrator</li>
+            <li>Dashboard sessions use secure, HttpOnly cookies</li>
             <li>Each registered game requires review before key validation</li>
-            <li>API credentials are shown once and must be kept private</li>
+            <li>API credentials can be rotated and are shown once</li>
           </ul>
-          <p class="price-note">See the onboarding guide for the current manual process and its setup requirements.</p>
+          <p class="price-note">The dashboard works only on a deployment with same-origin website assets and Discord OAuth configured.</p>
         </article>
         <article class="price-card">
           <span class="price-state">Not available</span>
@@ -80,7 +80,7 @@
           <p>The documentation explains required configuration and current limitations.</p>
         </div>
         <div class="actions">
-          <a class="button button-primary" href="docs.html">Read developer docs</a>
+          <a class="button button-primary" href="dashboard.html">Open dashboard</a>
           <a class="button button-outline" href="support.html">Support and questions</a>
         </div>
       </div>
@@ -90,7 +90,7 @@
   <footer class="site-footer">
     <div class="shell footer-inner">
       <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
-      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="support.html">Support</a><a href="policies.html">Policy status</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
     </div>
   </footer>
 </body>

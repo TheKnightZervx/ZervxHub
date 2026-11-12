@@ -255,7 +255,29 @@ class MemoryD1 {
 
   revokeKeys(sql, args) {
     let matches;
-    if (sql.includes("developer_id IS NULL") && sql.includes("key_hash")) {
+    if (sql.includes("revoked_at = ?") && sql.includes("key_hash") && sql.includes("developer_id = ?")) {
+      const [revokedAt, hash1, hash2, developerId] = args;
+      matches = [...this.keys.values()].filter(row =>
+        (row.hash === hash1 || row.hash === hash2) &&
+        row.developerId === developerId &&
+        row.status === "active");
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("revoked_at = ?") && sql.includes("discord_user_id = ? AND developer_id = ?")) {
+      const [revokedAt, discordUserId, developerId] = args;
+      matches = [...this.keys.values()].filter(row =>
+        row.developerId === developerId &&
+        row.discordUserId === discordUserId &&
+        row.status === "active");
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("revoked_at = ?") && sql.includes("developer_id = ? AND discord_user_id = ?")) {
+      const [revokedAt, developerId, discordUserId, olderThan] = args;
+      matches = [...this.keys.values()].filter(row =>
+        row.developerId === developerId &&
+        row.discordUserId === discordUserId &&
+        row.status === "active" &&
+        (olderThan === undefined || row.createdAt <= olderThan));
+      for (const row of matches) row.revokedAt = revokedAt;
+    } else if (sql.includes("developer_id IS NULL") && sql.includes("key_hash")) {
       const [hash1, hash2] = args;
       matches = [...this.keys.values()].filter(row => (row.hash === hash1 || row.hash === hash2) && row.developerId == null && row.status === "active");
     } else if (sql.includes("developer_id IS NULL") && sql.includes("created_at <=")) {

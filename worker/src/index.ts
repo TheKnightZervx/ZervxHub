@@ -29,6 +29,10 @@ export interface Env {
   KEY_PEPPER: string;
   ALLOWED_UNIVERSE_IDS: string;
   CORS_ORIGIN?: string;
+  DISCORD_OAUTH_CLIENT_ID?: string;
+  DISCORD_OAUTH_CLIENT_SECRET?: string;
+  DISCORD_OAUTH_REDIRECT_URI?: string;
+  ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
 type Json = Record<string, unknown>;
@@ -71,6 +75,9 @@ export default {
           "access-control-allow-origin": origin,
           "access-control-allow-methods": "GET, POST, OPTIONS",
           "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-bot-token",
+          ...(env.CORS_ORIGIN && origin !== "null"
+            ? { "access-control-allow-credentials": "true" }
+            : {}),
           "access-control-max-age": "86400",
         },
       });
@@ -81,6 +88,10 @@ export default {
     // Handle the new multi-developer API.
     const v2Response = await handleV2(request, env);
     if (v2Response) return v2Response;
+
+    if (!url.pathname.startsWith("/v1/") && env.ASSETS) {
+      return env.ASSETS.fetch(request);
+    }
 
     // Original V1 API remains available.
     if (request.method === "GET" && url.pathname === "/v1/health") {
