@@ -76,3 +76,15 @@ Email delivery uses an optional `MAILER` Cloudflare service binding to `https://
 The D1 schema is migration `0007_mobile_identity_and_chat.sql`. Apply it locally for development only. Do not run remote migrations from this branch.
 
 Private attachments, voice messages, WebRTC calls, video, and screen sharing remain explicitly disabled until private object storage, malware quarantine, upload grants, TURN/SFU reachability, mobile lifecycle behavior, and cost controls are verified. Global chat rejects media payloads by design.
+
+
+## Android local API configuration
+
+The Android build intentionally has no hardcoded production host. Set a verified HTTPS Worker URL only for local testing:
+
+```bash
+cd mobile/android
+gradle assembleDebug -PzervxhubApiBaseUrl=https://YOUR-VERIFIED-WORKER-HOST
+```
+
+The value is injected into the debug/release BuildConfig at build time; release builds reject plain HTTP. Do not commit a real production host or secrets. A blank value leaves the client disconnected and displays a configuration message.
