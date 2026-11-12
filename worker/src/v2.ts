@@ -390,6 +390,41 @@ export async function handleV2(
     }, 200, origin);
   }
 
+  if (request.method === "GET" && url.pathname === "/v2/payments/methods") {
+    return respond({
+      provider: "paytabs_candidate",
+      checkoutEnabled: false,
+      status: "merchant_setup_required",
+      methods: [
+        {
+          id: "visa",
+          name: "Visa",
+          scope: "international_cards",
+          status: "planned",
+        },
+        {
+          id: "mastercard",
+          name: "Mastercard",
+          scope: "international_cards",
+          status: "planned",
+        },
+        {
+          id: "amwal",
+          name: "Amwal",
+          scope: "iraq_local",
+          status: "profile_activation_required",
+        },
+        {
+          id: "regional_wallets",
+          name: "Regional wallets and local payment methods",
+          scope: "eligible_markets_only",
+          status: "provider_profile_dependent",
+        },
+      ],
+      note: "Informational catalog only. Actual checkout methods depend on the approved merchant profile, customer context, currency, device, and provider eligibility.",
+    }, 200, origin);
+  }
+
   if (request.method === "GET" && url.pathname === "/v2/auth/discord/start") {
     return handleDiscordOAuthStart(request, env);
   }

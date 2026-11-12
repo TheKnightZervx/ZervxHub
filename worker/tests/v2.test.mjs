@@ -942,3 +942,16 @@ testCase("revoked Discord integrations and suspended developers cannot use bot e
   });
   assert.equal(afterSuspend.status, 404);
 });
+
+testCase("public payment method catalog is informational and checkout remains disabled", async () => {
+  const api = createApi();
+  const response = await api.request("/v2/payments/methods", { method: "GET" });
+  assert.equal(response.status, 200);
+  const body = await json(response);
+  assert.equal(body.checkoutEnabled, false);
+  assert.equal(body.status, "merchant_setup_required");
+  assert.deepEqual(body.methods.map(method => method.id), [
+    "visa", "mastercard", "amwal", "regional_wallets",
+  ]);
+  assert.equal(body.methods.every(method => method.status !== "active"), true);
+});
