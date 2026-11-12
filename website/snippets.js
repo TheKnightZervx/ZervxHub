@@ -323,15 +323,15 @@ function runJavaScript() {
       catch { return String(value); }
     };
     for (const method of ["log", "info", "warn", "error"]) {
-      console[method] = (...args) => send(method, args.map(format).join(" "));
+      console[method] = (...args) => send("console-" + method, args.map(format).join(" "));
     }
-    self.onerror = event => send("error", event.message || "Script error");
+    self.onerror = event => send("fatal", event.message || "Script error");
     (async () => {
       try {
         await (async () => { ${source.replace(/<\\/script/gi, "<\\\\/script")} })();
         send("done", "Execution finished.");
       } catch (error) {
-        send("error", error && error.stack ? error.stack : String(error));
+        send("fatal", error && error.stack ? error.stack : String(error));
       }
     })();
   `;
@@ -344,9 +344,10 @@ function runJavaScript() {
     worker.onmessage = event => {
       const line = document.createElement("div");
       line.textContent = event.data.value;
-      line.className = "console-" + event.data.type;
+      line.className = event.data.type === "fatal" ? "console-error" : event.data.type;
       output.append(line);
       if (event.data.type === "done") stopRun("Execution completed.");
+      if (event.data.type === "fatal") stopRun("Execution failed.");
     };
     worker.onerror = event => {
       const line = document.createElement("div");
