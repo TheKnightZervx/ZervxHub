@@ -408,6 +408,19 @@ fun AccountScreen() {
                     enabled = !loading,
                     colors = ButtonDefaults.buttonColors(containerColor = Gold, contentColor = Ink)
                 ) { Text("Sign out") }
+                OutlinedButton(
+                    onClick = {
+                        scope.launch {
+                            loading = true
+                            try { api.logoutAll(); user = null; challengeId = null; status = "All sessions signed out." }
+                            catch (error: Exception) { user = null; status = error.message ?: "Local session cleared." }
+                            finally { loading = false }
+                        }
+                    },
+                    enabled = !loading,
+                    border = BorderStroke(1.dp, Gold),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Gold)
+                ) { Text("Sign out everywhere") }
             } else {
                 FeatureNotice(
                     title = "Email verification code",
