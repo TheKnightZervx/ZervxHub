@@ -5,7 +5,7 @@ interface MailerBinding {
 }
 interface MobileEnv {
   DB: D1Database;
-  KEY_PEPPER: string;
+  MOBILE_AUTH_PEPPER: string;
   MAILER?: MailerBinding;
 }
 
@@ -74,7 +74,7 @@ function validEmail(value: string) {
   return value.length <= 254 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 }
 async function consumeLimit(env: MobileEnv, scope: string, identity: string, limit: number, windowSeconds: number) {
-  const keyHash = await hmac(identity, env.KEY_PEPPER);
+  const keyHash = await hmac("rate-limit:" + identity, env.MOBILE_AUTH_PEPPER);
   const now = nowSeconds();
   const row = await env.DB.prepare(
     `INSERT INTO mobile_rate_limits(scope, key_hash, window_start, count)
@@ -94,8 +94,8 @@ async function createCode() {
 async function authenticate(request: Request, env: MobileEnv) {
   const header = request.headers.get("authorization") ?? "";
   const match = header.match(/^Bearer ([a-f0-9]{64})$/i);
-  if (!match || !env.KEY_PEPPER) return null;
-  const tokenHash = await hmac(match[1], env.KEY_PEPPER);
+  if (!match || !env.MOBILE_AUTH_PEPPER) return null;
+  const tokenHash = await hmac("session:" + match[1], env.MOBILE_AUTH_PEPPER);
   const now = nowSeconds();
   const session = await env.DB.prepare(
     `SELECT u.id, u.email, u.display_name AS displayName
@@ -133,7 +133,7 @@ async function isBlocked(env: MobileEnv, one: string, two: string) {
 async function handleMobile(request: Request, env: MobileEnv): Promise<Response | null> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith("/v2/mobile/")) return null;
-  if (!env.KEY_PEPPER) return json({ error: "Mobile authentication is not configured" }, 503);
+  if (!env.MOBILE_AUTH_PEPPER) return json({ error: "Mobile authentication is not configured" }, 503);
   const path = url.pathname;
   const method = request.method;
 
@@ -155,7 +155,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     if (recent) return json({ error: "Please wait before requesting another code" }, 429);
     const code = await createCode();
     const challengeId = crypto.randomUUID();
-    const codeHash = await hmac(`${challengeId}: ${email}: ${code}`, env.KEY_PEPPER);
+    const codeHash = await hmac("otp:" + `${challengeId}: ${email}: ${code}`, env.MOBILE_AUTH_PEPPER);
     await env.DB.prepare(
       "INSERT INTO mobile_email_challenges(id, email, code_hash, created_at, expires_at) VALUES (?, ?, ?, ?, ?)"
     ).bind(challengeId, email, codeHash, now, now + OTP_TTL).run();
@@ -191,7 +191,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     if (!challenge || challenge.consumed_at !== null || challenge.expires_at <= now || challenge.attempts >= OTP_MAX_ATTEMPTS) {
       return json({ error: "Invalid or expired verification code" }, 400);
     }
-    const candidate = await hmac(`${challengeId}: ${challenge.email}: ${code}`, env.KEY_PEPPER);
+    const candidate = await hmac("otp:" + `${challengeId}: ${challenge.email}: ${code}`, env.MOBILE_AUTH_PEPPER);
     if (!constantTimeEqual(candidate, challenge.code_hash)) {
       await env.DB.prepare(
         "UPDATE mobile_email_challenges SET attempts = attempts + 1 WHERE id = ? AND consumed_at IS NULL AND expires_at > ? AND attempts < ?"
@@ -212,7 +212,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     ).bind(challenge.email).first<{ id: string; email: string; displayName: string; status: string }>();
     if (!user || user.status !== "active") return json({ error: "Account unavailable" }, 403);
     const token = randomHex(32);
-    const tokenHash = await hmac(token, env.KEY_PEPPER);
+    const tokenHash = await hmac("session:" + token, env.MOBILE_AUTH_PEPPER);
     await env.DB.prepare(
       "INSERT INTO mobile_sessions(token_hash, user_id, created_at, expires_at, last_seen_at) VALUES (?, ?, ?, ?, ?)"
     ).bind(tokenHash, user.id, now, now + SESSION_TTL, now).run();
