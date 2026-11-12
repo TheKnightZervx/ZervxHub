@@ -21,7 +21,7 @@ const guildIds = guildIdsFromEnv(process.env.DISCORD_GUILD_ID, process.env.DISCO
 const errorType = error => error instanceof Error ? error.name : "UnknownError";
 
 if (!token || !clientId || !apiUrl || !botApiToken) {
-  throw new Error("Missing required environment variables. Copy .env.example and fill in the private values.");
+  throw new Error("Missing required environment variables. Set DISCORD_TOKEN, DISCORD_CLIENT_ID, ZERVXHUB_API_URL, and the dedicated ZERVXHUB_BOT_TOKEN.");
 }
 
 const parsedApiUrl = new URL(apiUrl);

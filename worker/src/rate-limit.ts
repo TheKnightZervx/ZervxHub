@@ -51,7 +51,12 @@ export function isRateLimited(
     (typeof request?.headers?.get === "function"
       ? request.headers.get("cf-connecting-ip")
       : null) || "local";
-  const key = `${scope}:${client}:${discriminator}`;
+  // A discriminator represents the identity being limited (for example a
+  // Roblox UserId or Discord user ID), so it must not be reset by changing IP.
+  // Callers that need an IP ceiling should apply a separate non-discriminated scope.
+  const key = discriminator
+    ? `${scope}:identity:${discriminator}`
+    : `${scope}:ip:${client}`;
 
   // Periodic passive maintenance of expired buckets
   if (now - lastCleanup >= CLEANUP_INTERVAL_MS && buckets.size > 0) {

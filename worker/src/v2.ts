@@ -21,7 +21,7 @@ export interface V2Env {
   DISCORD_OAUTH_REDIRECT_URI?: string;
 }
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 type DeveloperSession = {
   developerId: string;
   displayName: string;
@@ -63,6 +63,7 @@ async function requireAdmin(request: Request, env: V2Env, origin: string) {
 }
 
 async function isAdmin(request: Request, env: V2Env) {
+  if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN === env.BOT_API_TOKEN) return false;
   const supplied = request.headers.get("x-admin-token") ?? "";
   return timingSafeEqual(supplied, env.ADMIN_TOKEN);
 }
@@ -113,6 +114,54 @@ function invalidDeveloper(request: Request, origin: string) {
 
 function matchesSecret(supplied: string, expected: string | undefined) {
   return timingSafeEqual(supplied, expected);
+}
+
+const MAX_REQUEST_BODY_BYTES = 16_384;
+
+export async function parseJsonBody(request: Request): Promise<
+  { data: Json; error?: never } | { data?: never; error: "too_large" | "invalid" }
+> {
+  const declaredLength = Number(request.headers.get("content-length") ?? 0);
+  if (Number.isFinite(declaredLength) && declaredLength > MAX_REQUEST_BODY_BYTES) {
+    return { error: "too_large" };
+  }
+
+  const reader = request.body?.getReader();
+  if (!reader) return { error: "invalid" };
+
+  const chunks: Uint8Array[] = [];
+  let totalBytes = 0;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      totalBytes += value.byteLength;
+      if (totalBytes > MAX_REQUEST_BODY_BYTES) {
+        await reader.cancel().catch(() => {});
+        return { error: "too_large" };
+      }
+      chunks.push(value);
+    }
+
+    const bytes = new Uint8Array(totalBytes);
+    let offset = 0;
+    for (const chunk of chunks) {
+      bytes.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    const parsed: unknown = JSON.parse(
+      new TextDecoder("utf-8", { fatal: true }).decode(bytes)
+    );
+    if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+      return { error: "invalid" };
+    }
+    return { data: parsed as Json };
+  } catch {
+    await reader.cancel().catch(() => {});
+    return { error: "invalid" };
+  }
 }
 
 function getCookie(request: Request, name: string) {
@@ -589,6 +638,25 @@ export async function handleV2(
     return respond({ games: result.results }, 200, origin);
   }
 
+  if (request.method === "GET" && url.pathname === "/v2/admin/developers") {
+    const denied = await requireAdmin(request, env, origin);
+    if (denied) return denied;
+    const result = await env.DB.prepare(
+      `SELECT id AS developerId, discord_user_id AS discordUserId,
+         display_name AS displayName, status, created_at AS createdAt
+       FROM developers
+       ORDER BY created_at DESC
+       LIMIT 100`
+    ).all<{
+      developerId: string;
+      discordUserId: string;
+      displayName: string;
+      status: string;
+      createdAt: number;
+    }>();
+    return respond({ developers: result.results }, 200, origin);
+  }
+
   if (request.method === "GET" && url.pathname === "/v2/admin/games") {
     const adminListDenied = await requireAdmin(request, env, origin);
     if (adminListDenied) return adminListDenied;
@@ -605,22 +673,14 @@ export async function handleV2(
     return respond({ error: "Method not allowed" }, 405, origin);
   }
 
-  const contentLength = Number(request.headers.get("content-length") ?? 0);
-  if (contentLength > 16_384) return respond({ error: "Request too large" }, 413, origin);
-  let body: unknown;
-  try {
-    const rawBody = await request.text();
-    if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
-      return respond({ error: "Request too large" }, 413, origin);
-    }
-    body = JSON.parse(rawBody);
-  } catch {
+  const parsedBody = await parseJsonBody(request);
+  if (parsedBody.error === "too_large") {
+    return respond({ error: "Request too large" }, 413, origin);
+  }
+  if (!parsedBody.data) {
     return respond({ error: "Invalid JSON body" }, 400, origin);
   }
-  if (body === null || typeof body !== "object" || Array.isArray(body)) {
-    return respond({ error: "Invalid JSON body" }, 400, origin);
-  }
-  const data = body as Json;
+  const data = parsedBody.data;
 
   if (url.pathname.startsWith("/v2/dashboard/")) {
     if (!isTrustedBrowserOrigin(request, env)) {
@@ -923,20 +983,22 @@ export async function handleV2(
     const denied = await requireAdmin(request, env, origin);
     if (denied) return denied;
 
-    const developerId = typeof data.developerId === "string" ? data.developerId.trim() : "";
-    if (!developerId) {
-      return respond({ error: "Provide a developer ID" }, 400, origin);
+    const developerId =
+      typeof data.developerId === "string" ? data.developerId.trim() : "";
+    if (!developerId || developerId.length > 80) {
+      return respond({ error: "Invalid developer ID" }, 400, origin);
     }
 
     const developer = await env.DB.prepare(
-      "SELECT id, status FROM developers WHERE id = ?"
-    ).bind(developerId).first<{ id: string; status: string }>();
-    if (!developer) return respond({ error: "Developer not found" }, 404, origin);
+      "SELECT id FROM developers WHERE id = ? AND status = 'active'"
+    ).bind(developerId).first<{ id: string }>();
+    if (!developer) return respond({ error: "Active developer not found" }, 404, origin);
 
     const apiKey = makeApiKey();
     const keyHash = await hashCredential(apiKey, env.KEY_PEPPER);
     const keyId = crypto.randomUUID();
     const now = Math.floor(Date.now() / 1000);
+
     await env.DB.batch([
       env.DB.prepare(
         "UPDATE developer_api_keys SET revoked_at = ? WHERE developer_id = ? AND revoked_at IS NULL"
@@ -950,8 +1012,8 @@ export async function handleV2(
       rotated: true,
       developerId,
       apiKey,
-      warning: "Save this API key now. It cannot be displayed again."
-    }, 200, origin);
+      warning: "The previous developer API keys have been revoked. Save this new key now; it cannot be displayed again."
+    }, 201, origin);
   }
 
   if (url.pathname === "/v2/admin/developers/status") {
@@ -1225,7 +1287,12 @@ export async function handleV2(
   // from the guild-to-developer integration. The bot never receives admin access.
   if (url.pathname.startsWith("/v2/discord/")) {
     const supplied = request.headers.get("x-bot-token") ?? "";
-    if (!matchesSecret(supplied, env.BOT_API_TOKEN)) {
+    // Never let the bot credential become an accidental alias for admin access.
+    const botTokenIsDistinct =
+      typeof env.BOT_API_TOKEN === "string" &&
+      env.BOT_API_TOKEN.length > 0 &&
+      env.BOT_API_TOKEN !== env.ADMIN_TOKEN;
+    if (!botTokenIsDistinct || !matchesSecret(supplied, env.BOT_API_TOKEN)) {
       if (isRateLimited(request, "bot-auth-failure", 30)) {
         return respond({ error: "Too many requests" }, 429, origin);
       }

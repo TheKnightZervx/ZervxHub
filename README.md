@@ -19,8 +19,9 @@ ZervxHub is a development codebase, not a hosted commercial service. The develop
 - Dashboard sessions are opaque, time-limited, HttpOnly cookies; only a peppered HMAC is stored in D1.
 - Developer/game/license queries are tenant-scoped; games must be approved before licenses can be issued.
 - Dashboard write routes require a matching configured browser origin; public license validation has no developer credential.
-- Authorization is decided by a trusted server/backend, never a LocalScript.
-- Validation fails closed when no Universe IDs are configured.
+- The Discord bot uses a dedicated `BOT_API_TOKEN`, distinct from the Worker admin token.
+- Roblox authorization is decided by the Worker through a server-side script, never by a LocalScript.
+- Validation fails closed unless the configured Universe ID allowlist permits the experience. Legacy V1 licenses are bound to the first Roblox account that successfully uses them.
 - Never commit secrets, tokens, or `.env` files.
 
 Start with [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md), [docs/DEVELOPER_ONBOARDING.md](docs/DEVELOPER_ONBOARDING.md), and [docs/ROBLOX_INTEGRATION.md](docs/ROBLOX_INTEGRATION.md). Commercial billing and support limitations are documented in [docs/COMMERCIAL_READINESS.md](docs/COMMERCIAL_READINESS.md) and [docs/SUPPORT.md](docs/SUPPORT.md).

@@ -93,6 +93,7 @@ class MemoryD1 {
             allowed_universe_ids: key.allowedUniverseIds,
             developer_id: key.developerId,
             key_hash: key.hash || hash1,
+            last_roblox_user_id: key.lastRobloxUserId,
             public_id: key.publicId,
             bound_roblox_user_id: key.boundRobloxUserId ?? null,
           } : null;
@@ -117,6 +118,14 @@ class MemoryD1 {
         return null;
       },
       async all() {
+        if (normalized.startsWith("SELECT id AS developerId, discord_user_id AS discordUserId")) {
+          return { results: [...db.developers.values()]
+            .sort((a, b) => b.createdAt - a.createdAt)
+            .slice(0, 100)
+            .map(({ id: developerId, discordUserId, displayName, status, createdAt }) => ({
+              developerId, discordUserId, displayName, status, createdAt,
+            })) };
+        }
         if (normalized.startsWith("SELECT universe_id AS universeId, name, status, verified_at AS verifiedAt FROM games")) {
           const [developerId] = args;
           return { results: [...db.games.values()]
@@ -144,7 +153,7 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE developer_api_keys SET revoked_at")) {
-          if (normalized.includes("developer_id = ?")) {
+          if (normalized.includes("WHERE developer_id = ?")) {
             const [revokedAt, developerId] = args;
             let changes = 0;
             for (const key of db.apiKeys.values()) {
@@ -231,15 +240,26 @@ class MemoryD1 {
           if (recent) return { meta: { changes: 0 } };
           db.keys.set(hash, {
             hash, discordUserId, createdAt, expiresAt, allowedUniverseIds,
-            developerId: null, status: "active", lastUsedAt: null, lastRobloxUserId: null,
+            developerId: null, publicId: null, status: "active", lastUsedAt: null,
+            lastRobloxUserId: null, boundRobloxUserId: null,
           });
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("INSERT INTO keys")) {
-          const [hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, checkDeveloperId, checkDiscordId, threshold] = args;
-          const recent = [...db.keys.values()].some(row => row.developerId === checkDeveloperId && row.discordUserId === checkDiscordId && row.createdAt > threshold);
+          const [hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, publicId] = args;
+          const checkDeveloperId = args[7] ?? developerId;
+          const checkDiscordId = args[8] ?? discordUserId;
+          const threshold = args[9] ?? Number.NEGATIVE_INFINITY;
+          const recent = [...db.keys.values()].some(row =>
+            row.developerId === checkDeveloperId &&
+            row.discordUserId === checkDiscordId &&
+            row.createdAt > threshold);
           if (recent) return { meta: { changes: 0 } };
-          db.keys.set(hash, { hash, discordUserId, createdAt, expiresAt, allowedUniverseIds, developerId, status: "active", lastUsedAt: null, lastRobloxUserId: null });
+          db.keys.set(hash, {
+            hash, discordUserId, createdAt, expiresAt, allowedUniverseIds,
+            developerId, publicId, status: "active", lastUsedAt: null,
+            lastRobloxUserId: null, boundRobloxUserId: null, validationCount: 0,
+          });
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE keys SET last_used_at")) {
@@ -259,6 +279,9 @@ class MemoryD1 {
           key.lastUsedAt = lastUsedAt;
           key.lastRobloxUserId = robloxUserId;
           key.boundRobloxUserId = boundUserId;
+          if (normalized.includes("validation_count = validation_count + 1")) {
+            key.validationCount = (key.validationCount ?? 0) + 1;
+          }
           return { meta: { changes: 1 } };
         }
         return { meta: { changes: 0 } };
@@ -346,7 +369,7 @@ function createApi() {
     });
     return worker.fetch(req, env);
   }
-  return { DB, request };
+  return { DB, request, env };
 }
 
 async function json(response) { return response.json(); }
@@ -407,10 +430,32 @@ testCase("admin creates developers; developer API keys are hashed and admin rout
   assert.equal(afterRevoke.status, 401);
 });
 
-testCase("administrator can rotate a lost developer API key without exposing the old key", async () => {
+testCase("admins can list developers while unauthenticated callers are denied", async () => {
   const api = createApi();
-  const developer = await createDeveloper(api, GUILD_1, "One");
+  const developer = await createDeveloper(api, GUILD_1, "Listed Developer");
 
+  const denied = await api.request("/v2/admin/developers", { method: "GET" });
+  assert.equal(denied.status, 401);
+
+  const listed = await api.request("/v2/admin/developers", {
+    method: "GET",
+    headers: adminHeaders,
+  });
+  assert.equal(listed.status, 200);
+  const data = await json(listed);
+  assert.equal(data.developers.length, 1);
+  assert.deepEqual(data.developers[0], {
+    developerId: developer.developerId,
+    discordUserId: GUILD_1,
+    displayName: "Listed Developer",
+    status: "active",
+    createdAt: data.developers[0].createdAt,
+  });
+});
+
+testCase("admin can rotate a developer API key and the previous key stops working", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Rotate Me");
   const denied = await api.request("/v2/admin/developer-keys/rotate", {
     body: { developerId: developer.developerId },
     headers: devHeaders(developer.apiKey),
@@ -427,23 +472,24 @@ testCase("administrator can rotate a lost developer API key without exposing the
     body: { developerId: developer.developerId },
     headers: adminHeaders,
   });
-  assert.equal(rotated.status, 200);
-  const rotation = await json(rotated);
-  assert.equal(rotation.rotated, true);
-  assert.match(rotation.apiKey, /^zvh_live_[a-f0-9]{64}$/);
-  assert.notEqual(rotation.apiKey, developer.apiKey);
-  assert.equal([...api.DB.apiKeys.keys()].includes(rotation.apiKey), false);
+  assert.equal(rotated.status, 201);
+  const result = await json(rotated);
+  assert.equal(result.rotated, true);
+  assert.match(result.apiKey, /^zvh_live_[a-f0-9]{64}$/);
+  assert.notEqual(result.apiKey, developer.apiKey);
+  assert.equal(api.DB.apiKeys.has(result.apiKey), false);
 
-  const oldKey = await api.request("/v2/games", {
+  const oldCredential = await api.request("/v2/games", {
     method: "GET",
     headers: devHeaders(developer.apiKey),
   });
-  const newKey = await api.request("/v2/games", {
+  assert.equal(oldCredential.status, 401);
+
+  const newCredential = await api.request("/v2/games", {
     method: "GET",
-    headers: devHeaders(rotation.apiKey),
+    headers: devHeaders(result.apiKey),
   });
-  assert.equal(oldKey.status, 401);
-  assert.equal(newKey.status, 200);
+  assert.equal(newCredential.status, 200);
 });
 
 testCase("game approval and developer game listing are scoped to the authenticated developer", async () => {
@@ -514,6 +560,63 @@ testCase("licenses cannot be issued, validated, or revoked across developer boun
   assert.equal(validateRevoked.status, 401);
 });
 
+testCase("a license is atomically bound to its first Roblox user", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Bound User");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Bound Game");
+  const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
+  assert.equal(issued.response.status, 201);
+
+  const firstUse = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(firstUse.status, 200);
+  assert.equal((await json(firstUse)).valid, true);
+
+  const differentUser = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER_2 },
+  });
+  assert.equal(differentUser.status, 403);
+  assert.deepEqual(await json(differentUser), {
+    valid: false,
+    reason: "license_bound_to_another_user",
+  });
+
+  const originalUserAgain = await api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(originalUserAgain.status, 200);
+  assert.equal((await json(originalUserAgain)).valid, true);
+});
+
+testCase("concurrent first-use validation binds a license to only one Roblox user", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Concurrent Binding");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Concurrent Game");
+  const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
+  assert.equal(issued.response.status, 201);
+
+  const validateAs = robloxUserId => api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId },
+    headers: { "cf-connecting-ip": "198.51.100.20" },
+  });
+  const [first, second] = await Promise.all([
+    validateAs(MEMBER),
+    validateAs(MEMBER_2),
+  ]);
+
+  assert.deepEqual(
+    [first.status, second.status].sort((a, b) => a - b),
+    [200, 403],
+  );
+  const firstBody = await json(first);
+  const secondBody = await json(second);
+  assert.ok(
+    (firstBody.valid === true && secondBody.reason === "license_bound_to_another_user") ||
+    (secondBody.valid === true && firstBody.reason === "license_bound_to_another_user"),
+  );
+});
+
 testCase("developer integration and Discord bot operations stay bound to one guild tenant", async () => {
   const api = createApi();
   const one = await createDeveloper(api, GUILD_1, "One");
@@ -547,6 +650,15 @@ testCase("developer integration and Discord bot operations stay bound to one gui
   assert.deepEqual(await json(revoke), { revoked: true });
 });
 
+testCase("oversized V2 request bodies are rejected while streaming", async () => {
+  const api = createApi();
+  const response = await api.request("/v2/games/register", {
+    body: { universeId: "12345", name: "x".repeat(17_000) },
+  });
+  assert.equal(response.status, 413);
+  assert.deepEqual(await json(response), { error: "Request too large" });
+});
+
 testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approval/isolation", async () => {
   const api = createApi();
   for (const body of ["null", "[]", "1", "\"text\""]) {
@@ -556,8 +668,10 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   const oversized = await api.request("/v2/keys/validate", { body: { key: "x".repeat(20_000) } });
   assert.equal(oversized.status, 413);
 
-  const malformedV1 = await api.request("/v1/keys/validate", { body: "[]" });
+  const malformedV1 = await api.request("/v1/keys/validate", { body: "null" });
   assert.equal(malformedV1.status, 400);
+  const arrayV1 = await api.request("/v1/keys/validate", { body: "[]" });
+  assert.equal(arrayV1.status, 400);
   const oversizedV1 = await api.request("/v1/keys/validate", {
     body: JSON.stringify({ key: "x".repeat(20_000) }),
   });
@@ -729,6 +843,41 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   assert.equal(issueAfter.response.status, 401);
 });
 
+testCase("legacy V1 admin authentication failures are rate limited", async () => {
+  const api = createApi();
+  let last;
+  for (let index = 0; index < 41; index++) {
+    last = await api.request("/v1/keys/issue", {
+      body: { discordUserId: MEMBER },
+      headers: { "x-admin-token": "incorrect-admin-token" },
+    });
+  }
+  assert.equal(last.status, 429);
+});
+
+testCase("Discord bot credential must be configured separately from the admin token", async () => {
+  const api = createApi();
+  api.env.BOT_API_TOKEN = ADMIN_TOKEN;
+  const response = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 },
+    headers: { "x-bot-token": ADMIN_TOKEN },
+  });
+  assert.equal(response.status, 401);
+
+  // A shared secret must not continue to work through either admin API.
+  const adminResponse = await api.request("/v2/admin/developers", {
+    body: { discordUserId: MEMBER, displayName: "Should be denied" },
+    headers: adminHeaders,
+  });
+  assert.equal(adminResponse.status, 401);
+
+  const legacyAdminResponse = await api.request("/v1/keys/issue", {
+    body: { discordUserId: MEMBER },
+    headers: adminHeaders,
+  });
+  assert.equal(legacyAdminResponse.status, 401);
+});
+
 testCase("admin routes reject missing and wrong credentials", async () => {
   const api = createApi();
   const missing = await api.request("/v2/admin/developers", {
@@ -776,6 +925,26 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   });
   assert.equal(legacyValidate.status, 200);
   assert.equal((await json(legacyValidate)).valid, true);
+
+  const legacyDifferentUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345", robloxUserId: MEMBER_2 },
+  });
+  assert.equal(legacyDifferentUser.status, 403);
+  assert.deepEqual(await json(legacyDifferentUser), {
+    valid: false,
+    reason: "license_bound_to_another_user",
+  });
+
+  const legacyOriginalUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(legacyOriginalUser.status, 200);
+  assert.equal((await json(legacyOriginalUser)).valid, true);
+
+  const missingRobloxUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345" },
+  });
+  assert.equal(missingRobloxUser.status, 400);
 });
 
 testCase("revoked Discord integrations and suspended developers cannot use bot endpoints", async () => {

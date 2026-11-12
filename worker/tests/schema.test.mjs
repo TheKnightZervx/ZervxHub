@@ -170,3 +170,29 @@ test("dashboard migration preserves existing rows and backfills public identifie
   assert.equal(license.bound_roblox_user_id, "987654321");
   db.close();
 });
+
+test("legacy license binding SQL atomically locks a key to its first Roblox user", async () => {
+  const db = await createDatabase();
+  db.prepare(
+    `INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids)
+     VALUES (?, ?, 'active', ?, ?, ?)`
+  ).run("legacy-binding-hash", "333333333333333", 1, 9999999999, "12345");
+
+  const bind = db.prepare(
+    `UPDATE keys
+     SET last_used_at = ?, last_roblox_user_id = ?,
+         bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?)
+     WHERE key_hash = ? AND developer_id IS NULL AND status = 'active'
+       AND expires_at > ?
+       AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?)`
+  );
+
+  assert.equal(bind.run(2, "333333333333333", "333333333333333", "legacy-binding-hash", 2, "333333333333333").changes, 1);
+  assert.equal(bind.run(3, "444444444444444", "444444444444444", "legacy-binding-hash", 3, "444444444444444").changes, 0);
+  assert.equal(
+    db.prepare("SELECT bound_roblox_user_id FROM keys WHERE key_hash = ?")
+      .get("legacy-binding-hash").bound_roblox_user_id,
+    "333333333333333",
+  );
+  db.close();
+});
