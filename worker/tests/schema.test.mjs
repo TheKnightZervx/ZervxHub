@@ -16,6 +16,7 @@ async function createDatabase() {
     "0004_license_account_binding.sql",
     "0005_game_server_credentials.sql",
     "0006_game_validation_replay_protection.sql",
+    "0007_mobile_identity_and_chat.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
   }
@@ -80,6 +81,15 @@ test("migrations create isolated developer, game, and license tables", async () 
     "keys",
     "license_events",
     "license_validation_daily",
+    "mobile_conversation_members",
+    "mobile_conversations",
+    "mobile_email_challenges",
+    "mobile_messages",
+    "mobile_rate_limits",
+    "mobile_reports",
+    "mobile_sessions",
+    "mobile_user_blocks",
+    "mobile_users",
     "subscription_change_requests",
   ]);
 
