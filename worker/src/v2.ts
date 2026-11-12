@@ -16,7 +16,7 @@ export interface V2Env {
   CORS_ORIGIN?: string;
 }
 
-type Json = Record<string, unknown>;
+export type Json = Record<string, unknown>;
 
 const respond = (data: Json, status = 200, origin = "*") =>
   new Response(JSON.stringify(data), {
@@ -101,7 +101,7 @@ function matchesSecret(supplied: string, expected: string | undefined) {
 
 const MAX_REQUEST_BODY_BYTES = 16_384;
 
-async function parseJsonBody(request: Request): Promise<
+export async function parseJsonBody(request: Request): Promise<
   { data: Json; error?: never } | { data?: never; error: "too_large" | "invalid" }
 > {
   const declaredLength = Number(request.headers.get("content-length") ?? 0);
