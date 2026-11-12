@@ -22,6 +22,7 @@ import com.zervxhub.mobile.data.MobileApiClient
 import com.zervxhub.mobile.data.MobileConversation
 import com.zervxhub.mobile.data.MobileMessage
 import com.zervxhub.mobile.data.MobileUser
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 private val Ink = Color(0xFF090909)
@@ -72,6 +73,11 @@ private fun GlobalChatPanel(api: MobileApiClient, signedIn: Boolean) {
             try { messages = api.globalMessages(); status = "" }
             catch (error: Exception) { status = error.message ?: "Could not load global chat." }
             finally { loading = false }
+            while (true) {
+                try { messages = api.globalMessages(); status = "" }
+                catch (error: Exception) { status = error.message ?: "Could not refresh global chat." }
+                delay(8_000)
+            }
         } else {
             messages = emptyList()
         }
@@ -139,6 +145,11 @@ private fun PrivateChatPanel(api: MobileApiClient, signedIn: Boolean, group: Boo
             try { reloadConversations(); status = "" }
             catch (error: Exception) { status = error.message ?: "Could not load conversations." }
             finally { loading = false }
+            while (true) {
+                try { reloadConversations() }
+                catch (error: Exception) { status = error.message ?: "Could not refresh conversations." }
+                delay(12_000)
+            }
         } else {
             conversations = emptyList()
             selected = null
@@ -151,6 +162,11 @@ private fun PrivateChatPanel(api: MobileApiClient, signedIn: Boolean, group: Boo
         try { messages = api.privateMessages(conversation.id); status = "" }
         catch (error: Exception) { status = error.message ?: "Could not load private messages." }
         finally { loading = false }
+        while (true) {
+            try { messages = api.privateMessages(conversation.id); status = "" }
+            catch (error: Exception) { status = error.message ?: "Could not refresh private messages." }
+            delay(8_000)
+        }
     }
 
     Column(Modifier.fillMaxSize(), verticalArrangement = Arrangement.spacedBy(10.dp)) {
