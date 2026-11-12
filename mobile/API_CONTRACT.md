@@ -46,8 +46,8 @@ Proposed routes only; implement only after route schemas and D1 migrations have 
 - Never trust client-submitted plan, price, entitlement or payment status. Grant entitlements only from verified provider webhooks/server-side checks.
 - Do not bundle payment secrets or open a checkout that can incur charges without explicit approval.
 
-## Not yet implemented
-The Android UI currently presents disabled placeholders until matching server endpoints, storage authorization, realtime transport and tests exist. Do not show fake users, messages, prices, entitlements or payment success.
+## Remaining gated capabilities
+The Android account and text-chat screens now use the authenticated mobile API. Private voice notes, files, voice/video calls and screen sharing remain disabled until private storage, malware quarantine, secure signaling, TURN/SFU reachability, abuse controls and cost are verified. Do not show fake users, messages, prices, entitlements or payment success.
 
 
 ## Implemented mobile backend routes
