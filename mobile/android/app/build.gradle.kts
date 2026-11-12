@@ -12,7 +12,7 @@ android {
   targetSdk = 35
   versionCode = 1
   versionName = "0.1.0"
-  buildConfigField("String", "API_BASE_URL", "\"\\"")
+  buildConfigField("String", "API_BASE_URL", "\"\"")
  }
  buildFeatures { compose = true; buildConfig = true }
  compileOptions {
