@@ -384,6 +384,17 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       return json({ conversationId: id, kind: "group", name, memberCount: members.length }, 201);
     }
 
+    const privateMediaMatch = path.match(/^\\/v2\\/mobile\\/chat\\/conversations\\/([0-9a-f-]{36})\\/(attachments|voice-messages|calls|signaling)$/i);
+    if (method === "POST" && privateMediaMatch) {
+      const conversationId = privateMediaMatch[1];
+      if (!await isMember(env, conversationId, user.id)) return json({ error: "Conversation not found" }, 404);
+      const conversation = await env.DB.prepare(
+        "SELECT kind FROM mobile_conversations WHERE id = ? AND kind IN ('direct', 'group')"
+      ).bind(conversationId).first();
+      if (!conversation) return json({ error: "Conversation not found" }, 404);
+      return json({ error: "Private media and calling are not enabled until storage, scanning and relay services pass security review" }, 503);
+    }
+
     const messagesMatch = path.match(/^\/v2\/mobile\/chat\/conversations\/([0-9a-f-]{36})\/messages$/i);
     if (messagesMatch) {
       const conversationId = messagesMatch[1];
