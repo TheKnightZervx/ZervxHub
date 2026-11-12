@@ -56,6 +56,19 @@ These are local automated or browser-preview results, not live staging acceptanc
 
 Capture only synthetic IDs and result codes. Never use production customer data or include raw secrets, license keys, or OAuth tokens in evidence.
 
+## Roblox Studio manual acceptance (staging only)
+
+Run this only after a private staging experience and staging Worker/D1 are available. Use a synthetic developer, test license, and test Roblox accounts. Never point `API_BASE` at production.
+
+1. Register the staging experience's Universe ID, approve it in the staging admin workflow, create a game server key, and save it as `ServerStorage.ZervxHubGameServerKey`. Confirm it is not in `ReplicatedStorage`, a LocalScript, or any client-visible object. Enable HTTP Requests and set the server script's `API_BASE` to the staging Worker URL.
+2. Create a synthetic license for a test Roblox account and install the server and prompt scripts. Start a private server session with that account, enter the license, and confirm the server-controlled `ZervxHubAuthorized` attribute becomes true. Check the intended server-gated feature, not only the UI.
+3. Replace the test license with an invalid value; confirm authorization is cleared and the client receives only a generic failure. Restore the valid key and confirm normal behavior.
+4. In the staging dashboard, rotate the game's server key. Before updating ServerStorage, confirm the old key fails closed. Set the newly shown key in `ServerStorage` and confirm validation succeeds. Revoke that key in the dashboard and confirm validation fails; create a fresh key and update ServerStorage before continuing.
+5. Test first-use account binding with a synthetic license: validate once as the intended test account, then try the same license from a different test account. The second account must be denied and the first must remain authorized. Revoke the license in the dashboard and confirm the first account is denied on its next validation.
+6. To test timestamp expiry and replay handling without altering the shipped Roblox script, use a temporary **server-only** test harness in the private experience. Read the credential from ServerStorage, submit a request to the staging endpoint with the normal synthetic license fields and a UUID request ID, first with a timestamp 61 seconds old, then with a fresh timestamp. The stale request must return `invalid_request`; the fresh request may validate. Submit the same fresh request ID again (including an uppercase UUID variant) and expect `request_replayed`. Do not print request headers, credentials, or license values.
+7. Temporarily point the server script at an unreachable staging-only URL and confirm API failure clears authorization and fails closed. Restore the staging URL and verify recovery.
+8. Remove temporary harnesses and test credentials after recording synthetic result codes. Never copy a game key into client-visible storage or attach raw request/response secrets to the acceptance report.
+
 ## Production-readiness checklist
 
 - [ ] Establish a separately named staging environment and database; keep production resources out of staging commands.
