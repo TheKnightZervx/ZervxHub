@@ -264,6 +264,7 @@ private fun PrivateChatPanel(api: MobileApiClient, signedIn: Boolean, group: Boo
                 DisabledTool("🖥", "Share screen")
                 EmojiRow { emoji -> draft += emoji }
             }
+            StatusNotice("Voice notes, file uploads, voice/video calls and screen sharing are gated until private storage, malware controls and media relay are verified.")
             if (status.isNotBlank()) Text(status, color = Gold, style = MaterialTheme.typography.bodySmall)
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 OutlinedTextField(
