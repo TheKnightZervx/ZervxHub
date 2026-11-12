@@ -523,6 +523,34 @@ testCase("a license is atomically bound to its first Roblox user", async () => {
   assert.equal((await json(originalUserAgain)).valid, true);
 });
 
+testCase("concurrent first-use validation binds a license to only one Roblox user", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "Concurrent Binding");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Concurrent Game");
+  const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
+  assert.equal(issued.response.status, 201);
+
+  const validateAs = robloxUserId => api.request("/v2/keys/validate", {
+    body: { key: issued.data.key, universeId: "12345", robloxUserId },
+    headers: { "cf-connecting-ip": "198.51.100.20" },
+  });
+  const [first, second] = await Promise.all([
+    validateAs(MEMBER),
+    validateAs(MEMBER_2),
+  ]);
+
+  assert.deepEqual(
+    [first.status, second.status].sort((a, b) => a - b),
+    [200, 403],
+  );
+  const firstBody = await json(first);
+  const secondBody = await json(second);
+  assert.ok(
+    (firstBody.valid === true && secondBody.reason === "roblox_user_mismatch") ||
+    (secondBody.valid === true && firstBody.reason === "roblox_user_mismatch"),
+  );
+});
+
 testCase("developer integration and Discord bot operations stay bound to one guild tenant", async () => {
   const api = createApi();
   const one = await createDeveloper(api, GUILD_1, "One");
