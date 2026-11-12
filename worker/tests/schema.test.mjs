@@ -110,3 +110,26 @@ test("consolidated schema.sql matches the final migration table and index set", 
 
   db.close();
 });
+
+test("legacy license binding SQL atomically locks a key to its first Roblox user", async () => {
+  const db = await createDatabase();
+  db.prepare(
+    `INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids)
+     VALUES (?, ?, 'active', ?, ?, ?)`
+  ).run("legacy-binding-hash", "333333333333333", 1, 9999999999, "12345");
+
+  const bind = db.prepare(
+    `UPDATE keys SET last_used_at = ?, last_roblox_user_id = ?
+     WHERE key_hash = ? AND developer_id IS ? AND status = 'active'
+       AND (last_roblox_user_id IS NULL OR last_roblox_user_id = ?)`
+  );
+
+  assert.equal(bind.run(2, "333333333333333", "legacy-binding-hash", null, "333333333333333").changes, 1);
+  assert.equal(bind.run(3, "444444444444444", "legacy-binding-hash", null, "444444444444444").changes, 0);
+  assert.equal(
+    db.prepare("SELECT last_roblox_user_id FROM keys WHERE key_hash = ?")
+      .get("legacy-binding-hash").last_roblox_user_id,
+    "333333333333333",
+  );
+  db.close();
+});
