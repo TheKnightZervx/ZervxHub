@@ -33,6 +33,7 @@ export interface Env {
   ADMIN_TOKEN: string;
   BOT_API_TOKEN?: string;
   KEY_PEPPER: string;
+  MOBILE_AUTH_PEPPER?: string;
   ALLOWED_UNIVERSE_IDS: string;
   CORS_ORIGIN?: string;
   DISCORD_OAUTH_CLIENT_ID?: string;
