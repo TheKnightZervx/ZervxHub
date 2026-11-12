@@ -238,3 +238,30 @@ test("private media remains disabled and subscriptions never invent an active pl
   });
   assert.equal(media.status, 503);
 });
+
+
+test("direct conversations can be started with a known account email", async () => {
+  const sender = await signIn("direct-email-sender@example.test", "198.51.100.31");
+  const recipient = await signIn("direct-email-recipient@example.test", "198.51.100.32");
+  const created = await call("/v2/mobile/chat/direct", {
+    method: "POST", token: sender.token, body: { recipientEmail: recipient.user.email }
+  });
+  assert.equal(created.status, 201);
+  const id = (await json(created)).conversationId;
+  const sent = await call(`/v2/mobile/chat/conversations/${id}/messages`, {
+    method: "POST", token: sender.token, body: { content: "Hello by email" }
+  });
+  assert.equal(sent.status, 201);
+});
+
+test("private groups accept known member emails without exposing a directory", async () => {
+  const owner = await signIn("email-group-owner@example.test", "198.51.100.33");
+  const member = await signIn("email-group-member@example.test", "198.51.100.34");
+  const created = await call("/v2/mobile/chat/groups", {
+    method: "POST", token: owner.token, body: { name: "Email Group", memberEmails: [member.user.email] }
+  });
+  assert.equal(created.status, 201);
+  const id = (await json(created)).conversationId;
+  const memberMessages = await call(`/v2/mobile/chat/conversations/${id}/messages`, { token: member.token });
+  assert.equal(memberMessages.status, 200);
+});
