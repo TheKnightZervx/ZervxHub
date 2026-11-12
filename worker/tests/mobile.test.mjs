@@ -291,3 +291,26 @@ test("mobile auth fails closed without its dedicated pepper secret", async () =>
   assert.equal(response.status, 503);
   env.MOBILE_AUTH_PEPPER = pepper;
 });
+
+
+test("private media and call routes require membership and global chat rejects them", async () => {
+  const one = await signIn("media-one@example.test", "198.51.100.51");
+  const two = await signIn("media-two@example.test", "198.51.100.52");
+  const outsider = await signIn("media-outsider@example.test", "198.51.100.53");
+  const direct = await call("/v2/mobile/chat/direct", {
+    method: "POST", token: one.token, body: { recipientEmail: two.user.email }
+  });
+  const id = (await json(direct)).conversationId;
+  const allowedMember = await call(`/v2/mobile/chat/conversations/${id}/calls`, {
+    method: "POST", token: one.token, body: { kind: "audio" }
+  });
+  assert.equal(allowedMember.status, 503);
+  const deniedOutsider = await call(`/v2/mobile/chat/conversations/${id}/attachments`, {
+    method: "POST", token: outsider.token, body: { name: "private.txt" }
+  });
+  assert.equal(deniedOutsider.status, 404);
+  const deniedGlobal = await call("/v2/mobile/chat/global/calls", {
+    method: "POST", token: one.token, body: { kind: "video" }
+  });
+  assert.equal(deniedGlobal.status, 403);
+});
