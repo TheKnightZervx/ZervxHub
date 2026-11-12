@@ -230,6 +230,40 @@ export async function handleV2(
     return respond({ revoked: result.meta.changes > 0 }, 200, origin);
   }
 
+  if (url.pathname === "/v2/admin/developer-keys/rotate") {
+    const denied = await requireAdmin(request, env, origin);
+    if (denied) return denied;
+
+    const developerId = typeof data.developerId === "string" ? data.developerId.trim() : "";
+    if (!developerId) {
+      return respond({ error: "Provide a developer ID" }, 400, origin);
+    }
+
+    const developer = await env.DB.prepare(
+      "SELECT id, status FROM developers WHERE id = ?"
+    ).bind(developerId).first<{ id: string; status: string }>();
+    if (!developer) return respond({ error: "Developer not found" }, 404, origin);
+
+    const apiKey = makeApiKey();
+    const keyHash = await hashCredential(apiKey, env.KEY_PEPPER);
+    const now = Math.floor(Date.now() / 1000);
+    await env.DB.batch([
+      env.DB.prepare(
+        "UPDATE developer_api_keys SET revoked_at = ? WHERE developer_id = ? AND revoked_at IS NULL"
+      ).bind(now, developerId),
+      env.DB.prepare(
+        "INSERT INTO developer_api_keys (key_hash, developer_id, created_at) VALUES (?, ?, ?)"
+      ).bind(keyHash, developerId, now),
+    ]);
+
+    return respond({
+      rotated: true,
+      developerId,
+      apiKey,
+      warning: "Save this API key now. It cannot be displayed again."
+    }, 200, origin);
+  }
+
   if (url.pathname === "/v2/admin/developers/status") {
     const denied = await requireAdmin(request, env, origin);
     if (denied) return denied;
@@ -450,7 +484,13 @@ export async function handleV2(
       const universeId = typeof data.universeId === "string" ? data.universeId.trim() : "";
       if (
         isRateLimited(request, "discord-issue-ip", 120) ||
-        isRateLimited(request, "discord-issue-user", 5, 60_000, discordUserId || "invalid")
+        isRateLimited(
+          request,
+          "discord-issue-user",
+          5,
+          60_000,
+          validDiscordId(discordUserId) ? discordUserId : "invalid"
+        )
       ) {
         return respond({ error: "Too many requests. Wait a minute and try again." }, 429, origin);
       }

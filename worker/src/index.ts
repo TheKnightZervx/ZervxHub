@@ -129,7 +129,18 @@ export default {
       const robloxUserId =
         typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
 
-      if (key.length < 20 || key.length > 100 || !/^[0-9]+$/.test(universeId)) {
+      const invalidRobloxUserId =
+        (body.robloxUserId !== undefined &&
+          body.robloxUserId !== null &&
+          typeof body.robloxUserId !== "string") ||
+        (robloxUserId !== "" && !/^[0-9]{1,24}$/.test(robloxUserId));
+
+      if (
+        key.length < 20 ||
+        key.length > 100 ||
+        !/^[0-9]+$/.test(universeId) ||
+        invalidRobloxUserId
+      ) {
         return json({ valid: false, reason: "invalid_request" }, 400, origin);
       }
 

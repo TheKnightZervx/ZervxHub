@@ -5,13 +5,20 @@ import {
   Routes,
   SlashCommandBuilder,
 } from "discord.js";
-import { filterGameChoices, guildIdsFromEnv, issueReply, revokeReply } from "./licensing.js";
+import {
+  filterGameChoices,
+  guildIdsFromEnv,
+  issueReply,
+  parseWorkerResponse,
+  revokeReply,
+} from "./licensing.js";
 
 const token = process.env.DISCORD_TOKEN;
 const clientId = process.env.DISCORD_CLIENT_ID;
 const apiUrl = process.env.ZERVXHUB_API_URL?.replace(/\/$/, "");
 const botApiToken = process.env.ZERVXHUB_BOT_TOKEN;
 const guildIds = guildIdsFromEnv(process.env.DISCORD_GUILD_ID, process.env.DISCORD_GUILD_IDS);
+const errorType = error => error instanceof Error ? error.name : "UnknownError";
 
 if (!token || !clientId || !apiUrl || !botApiToken) {
   throw new Error("Missing required environment variables. Copy .env.example and fill in the private values.");
@@ -53,12 +60,7 @@ async function api(path, body) {
     body: JSON.stringify(body),
     signal: AbortSignal.timeout(10_000),
   });
-  let data = {};
-  try {
-    data = await response.json();
-  } catch {
-    data = {};
-  }
+  const data = await parseWorkerResponse(response);
   return { response, data };
 }
 
@@ -75,16 +77,16 @@ const rest = new REST({ version: "10" }).setToken(token);
 for (const guildId of guildIds) {
   try {
     await rest.put(Routes.applicationGuildCommands(clientId, guildId), { body: commands });
-  } catch {
-    console.error(`Could not register slash commands for guild ${guildId}.`);
+  } catch (error) {
+    console.error(`Could not register slash commands for guild ${guildId} (${errorType(error)}).`);
   }
 }
 
 const client = new Client({ intents: [GatewayIntentBits.Guilds] });
 client.once("ready", () => console.log(`ZervxHub bot online as ${client.user?.tag}`));
-client.on("error", () => console.error("Discord client encountered an error."));
+client.on("error", error => console.error(`Discord client encountered an error (${errorType(error)}).`));
 
-client.on("interactionCreate", async interaction => {
+async function handleInteraction(interaction) {
   if (interaction.isAutocomplete()) {
     if (interaction.commandName !== "getkey" || !interaction.guildId) {
       await interaction.respond([]);
@@ -93,8 +95,11 @@ client.on("interactionCreate", async interaction => {
     try {
       const games = await approvedGames(interaction.guildId);
       await interaction.respond(filterGameChoices(games, interaction.options.getFocused()));
-    } catch {
-      await interaction.respond([]).catch(() => {});
+    } catch (error) {
+      console.error(`Game autocomplete failed (${errorType(error)}).`);
+      await interaction.respond([]).catch(responseError => {
+        console.error(`Could not send empty autocomplete response (${errorType(responseError)}).`);
+      });
     }
     return;
   }
@@ -115,19 +120,20 @@ client.on("interactionCreate", async interaction => {
         universeId,
       });
       await interaction.editReply(issueReply(response.status, data));
-    } catch {
+    } catch (error) {
+      console.error(`Key issuance failed (${errorType(error)}).`);
       await interaction.editReply("Could not reach the key service. Please try again later.");
     }
     return;
   }
 
   if (interaction.commandName === "revoke-key") {
-    if (!interaction.memberPermissions?.has("ManageGuild")) {
-      await interaction.reply({ content: "You need Manage Server permission.", ephemeral: true });
-      return;
-    }
     if (!interaction.guildId) {
       await interaction.reply({ content: "Use this command in a connected Discord server.", ephemeral: true });
+      return;
+    }
+    if (!interaction.memberPermissions?.has("ManageGuild")) {
+      await interaction.reply({ content: "You need Manage Server permission.", ephemeral: true });
       return;
     }
     const member = interaction.options.getUser("member", true);
@@ -138,8 +144,34 @@ client.on("interactionCreate", async interaction => {
         discordUserId: member.id,
       });
       await interaction.editReply(revokeReply(response.status, data, member.id));
-    } catch {
+    } catch (error) {
+      console.error(`Key revocation failed (${errorType(error)}).`);
       await interaction.editReply("Could not reach the key service.");
+    }
+  }
+}
+
+client.on("interactionCreate", async interaction => {
+  try {
+    await handleInteraction(interaction);
+  } catch (error) {
+    console.error(`Interaction handling failed (${errorType(error)}).`);
+    if (interaction.isAutocomplete()) {
+      await interaction.respond([]).catch(responseError => {
+        console.error(`Could not send empty autocomplete response (${errorType(responseError)}).`);
+      });
+    } else if (interaction.isChatInputCommand()) {
+      const message = "Could not complete this interaction. Please try again later.";
+      const sendReply = interaction.deferred
+        ? () => interaction.editReply(message)
+        : !interaction.replied
+          ? () => interaction.reply({ content: message, ephemeral: true })
+          : null;
+      if (sendReply) {
+        await sendReply().catch(responseError => {
+          console.error(`Could not send interaction error reply (${errorType(responseError)}).`);
+        });
+      }
     }
   }
 });

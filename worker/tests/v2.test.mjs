@@ -11,6 +11,7 @@ globalThis.crypto ??= webcrypto;
 
 let worker;
 let resetRateLimits;
+let getBucketCount;
 let buildDir;
 
 before(async () => {
@@ -27,6 +28,7 @@ before(async () => {
   const built = await import(pathToFileURL(outfile).href);
   worker = built.default;
   resetRateLimits = built.resetRateLimits;
+  getBucketCount = built.getBucketCount;
 });
 
 after(async () => {
@@ -58,6 +60,11 @@ class MemoryD1 {
           const [id] = args;
           const developer = db.developers.get(id);
           return developer?.status === "active" ? { id } : null;
+        }
+        if (normalized.startsWith("SELECT id, status FROM developers")) {
+          const [id] = args;
+          const developer = db.developers.get(id);
+          return developer ? { id, status: developer.status } : null;
         }
         if (normalized.startsWith("SELECT id FROM games")) {
           const [developerId, universeId] = args;
@@ -91,7 +98,7 @@ class MemoryD1 {
         if (normalized.includes("FROM keys WHERE") && normalized.includes("developer_id IS NULL")) {
           const [hash1, hash2] = args;
           const key = db.keys.get(hash1) || (hash2 && db.keys.get(hash2));
-          return key?.developerId == null ? {
+          return key && key.developerId == null ? {
             status: key.status,
             expires_at: key.expiresAt,
             allowed_universe_ids: key.allowedUniverseIds,
@@ -134,6 +141,17 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE developer_api_keys SET revoked_at")) {
+          if (normalized.includes("developer_id = ?")) {
+            const [revokedAt, developerId] = args;
+            let changes = 0;
+            for (const key of db.apiKeys.values()) {
+              if (key.developerId === developerId && !key.revokedAt) {
+                key.revokedAt = revokedAt;
+                changes++;
+              }
+            }
+            return { meta: { changes } };
+          }
           const [revokedAt, hash1, hash2] = args;
           const key = db.apiKeys.get(hash1) || (hash2 && db.apiKeys.get(hash2));
           if (!key || key.revokedAt) return { meta: { changes: 0 } };
@@ -353,6 +371,45 @@ testCase("admin creates developers; developer API keys are hashed and admin rout
   assert.equal(afterRevoke.status, 401);
 });
 
+testCase("administrator can rotate a lost developer API key without exposing the old key", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+
+  const denied = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: developer.developerId },
+    headers: devHeaders(developer.apiKey),
+  });
+  assert.equal(denied.status, 401);
+
+  const missing = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: "missing-developer" },
+    headers: adminHeaders,
+  });
+  assert.equal(missing.status, 404);
+
+  const rotated = await api.request("/v2/admin/developer-keys/rotate", {
+    body: { developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(rotated.status, 200);
+  const rotation = await json(rotated);
+  assert.equal(rotation.rotated, true);
+  assert.match(rotation.apiKey, /^zvh_live_[a-f0-9]{64}$/);
+  assert.notEqual(rotation.apiKey, developer.apiKey);
+  assert.equal([...api.DB.apiKeys.keys()].includes(rotation.apiKey), false);
+
+  const oldKey = await api.request("/v2/games", {
+    method: "GET",
+    headers: devHeaders(developer.apiKey),
+  });
+  const newKey = await api.request("/v2/games", {
+    method: "GET",
+    headers: devHeaders(rotation.apiKey),
+  });
+  assert.equal(oldKey.status, 401);
+  assert.equal(newKey.status, 200);
+});
+
 testCase("game approval and developer game listing are scoped to the authenticated developer", async () => {
   const api = createApi();
   const one = await createDeveloper(api, GUILD_1, "One");
@@ -470,6 +527,18 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   });
   assert.equal(oversizedV1.status, 413);
 
+  for (const robloxUserId of ["not-a-user", "1".repeat(25), 12345]) {
+    const invalidUserId = await api.request("/v1/keys/validate", {
+      body: { key: "x".repeat(20), universeId: "12345", robloxUserId },
+    });
+    assert.equal(invalidUserId.status, 400);
+    assert.deepEqual(await json(invalidUserId), { valid: false, reason: "invalid_request" });
+  }
+  const optionalUserId = await api.request("/v1/keys/validate", {
+    body: { key: "x".repeat(20), universeId: "12345" },
+  });
+  assert.equal(optionalUserId.status, 401);
+
   const developer = await createDeveloper(api, GUILD_1, "One");
   await registerApprovedGame(api, developer.apiKey, "12345", "Game");
   const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
@@ -478,6 +547,27 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
     body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
   });
   assert.equal(v1.status, 401);
+});
+
+testCase("invalid Discord issue IDs do not create unbounded rate-limit keys", async () => {
+  const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Game");
+  const connected = await api.request("/v2/admin/discord-integrations", {
+    body: { guildId: GUILD_1, developerId: developer.developerId },
+    headers: adminHeaders,
+  });
+  assert.equal(connected.status, 201);
+
+  const before = getBucketCount();
+  for (const discordUserId of ["1".repeat(5_000), "2".repeat(5_000)]) {
+    const response = await api.request("/v2/discord/keys/issue", {
+      body: { guildId: GUILD_1, discordUserId, universeId: "12345" },
+      headers: botHeaders,
+    });
+    assert.equal(response.status, 400);
+  }
+  assert.equal(getBucketCount(), before + 2);
 });
 
 testCase("expired licenses fail validation", async () => {

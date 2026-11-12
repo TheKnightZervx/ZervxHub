@@ -58,3 +58,16 @@ export function guildIdsFromEnv(primary, extra) {
   }
   return ids;
 }
+
+export async function parseWorkerResponse(response) {
+  let data;
+  try {
+    data = await response.json();
+  } catch {
+    throw new Error("Worker response was not valid JSON.");
+  }
+  if (data === null || typeof data !== "object" || Array.isArray(data)) {
+    throw new Error("Worker response must be a JSON object.");
+  }
+  return data;
+}
