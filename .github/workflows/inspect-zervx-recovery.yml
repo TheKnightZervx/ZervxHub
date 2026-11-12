@@ -1,0 +1,66 @@
+name: Inspect Zervx recovery archive
+
+on:
+  push:
+    branches:
+      - zervxhub-zip-inspection
+
+permissions:
+  contents: read
+
+jobs:
+  inspect-archive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+      - name: Inspect ZIP without extracting or executing it
+        shell: bash
+        run: |
+          python - <<'PY'
+          import zipfile, pathlib, re, sys
+          p = pathlib.Path("Zervx.zip")
+          if not p.is_file():
+              print("RESULT: Zervx.zip is missing from this branch")
+              sys.exit(2)
+          print(f"ARCHIVE: {p.name}")
+          print(f"ARCHIVE_BYTES: {p.stat().st_size}")
+          try:
+              with zipfile.ZipFile(p) as z:
+                  infos = z.infolist()
+                  print(f"ENTRY_COUNT: {len(infos)}")
+                  print(f"UNCOMPRESSED_BYTES: {sum(i.file_size for i in infos)}")
+                  bad = [i.filename for i in infos if i.filename.startswith(("/", "\\\\")) or ".." in pathlib.PurePosixPath(i.filename).parts]
+                  print(f"UNSAFE_PATH_COUNT: {len(bad)}")
+                  for name in bad[:30]: print("UNSAFE_PATH:", name)
+                  print("FILES_BEGIN")
+                  for i in infos:
+                      print(f"{i.file_size}\t{i.filename}")
+                  print("FILES_END")
+                  suspicious = []
+                  text_ext = {".js",".mjs",".cjs",".ts",".tsx",".jsx",".py",".json",".yml",".yaml",".toml",".md",".html",".css",".txt",".sh",".ps1",".env",".ini",".cfg"}
+                  patterns = [
+                      ("private-key", re.compile(rb"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----")),
+                      ("discord-token-like", re.compile(rb"[A-Za-z0-9_]{23,28}\\.[A-Za-z0-9_-]{6,8}\\.[A-Za-z0-9_-]{20,}")),
+                      ("github-token-like", re.compile(rb"gh[pousr]_[A-Za-z0-9]{30,}")),
+                      ("aws-access-key-like", re.compile(rb"AKIA[0-9A-Z]{16}")),
+                  ]
+                  for i in infos:
+                      if i.is_dir() or pathlib.PurePosixPath(i.filename).suffix.lower() not in text_ext or i.file_size > 2_000_000:
+                          continue
+                      try: data = z.read(i)
+                      except Exception: continue
+                      for label, rx in patterns:
+                          if rx.search(data):
+                              suspicious.append((i.filename, label))
+                      if pathlib.PurePosixPath(i.filename).name.lower() in {".env",".env.production",".env.local","id_rsa","credentials"}:
+                          suspicious.append((i.filename, "sensitive-filename"))
+                  print("SECURITY_SCAN_BEGIN")
+                  for name, kind in sorted(set(suspicious)):
+                      print(f"REVIEW_REQUIRED: {kind}\t{name}")
+                  print(f"SECURITY_REVIEW_COUNT: {len(set(suspicious))}")
+                  print("SECURITY_SCAN_END")
+          except zipfile.BadZipFile:
+              print("RESULT: file is not a valid ZIP archive")
+              sys.exit(3)
+          PY
