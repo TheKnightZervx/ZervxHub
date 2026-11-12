@@ -280,3 +280,14 @@ test("OTP requests fail closed without a mail delivery binding", async () => {
   assert.equal(afterCount, before);
   env.MAILER = mailer;
 });
+
+
+test("mobile auth fails closed without its dedicated pepper secret", async () => {
+  const pepper = env.MOBILE_AUTH_PEPPER;
+  env.MOBILE_AUTH_PEPPER = undefined;
+  const response = await call("/v2/mobile/auth/email/request-code", {
+    method: "POST", body: { email: "missing-pepper@example.test" }, ip: "198.51.100.42"
+  });
+  assert.equal(response.status, 503);
+  env.MOBILE_AUTH_PEPPER = pepper;
+});
