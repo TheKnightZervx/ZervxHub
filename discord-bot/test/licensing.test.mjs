@@ -1,12 +1,22 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
+  brandedReply,
   filterGameChoices,
   guildIdsFromEnv,
   issueReply,
   parseWorkerResponse,
   revokeReply,
+  ZERVXHUB_GOLD,
 } from "../src/licensing.js";
+
+test("bot replies use the ZervxHub gold embed identity", () => {
+  const [embed] = brandedReply("Key service status").embeds;
+  const data = embed.toJSON();
+  assert.equal(data.author.name, "ZervxHub");
+  assert.equal(data.color, ZERVXHUB_GOLD);
+  assert.equal(data.description, "Key service status");
+});
 
 test("game autocomplete stays inside Discord's choice limit", () => {
   const games = Array.from({ length: 30 }, (_, index) => ({

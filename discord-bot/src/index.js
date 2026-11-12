@@ -7,6 +7,7 @@ import {
 } from "discord.js";
 import {
   filterGameChoices,
+  brandedReply,
   guildIdsFromEnv,
   issueReply,
   parseWorkerResponse,
@@ -109,7 +110,7 @@ async function handleInteraction(interaction) {
   if (interaction.commandName === "getkey") {
     await interaction.deferReply({ ephemeral: true });
     if (!interaction.guildId) {
-      await interaction.editReply("Use this command in a connected Discord server.");
+      await interaction.editReply(brandedReply("Use this command in a connected Discord server."));
       return;
     }
     const universeId = interaction.options.getString("game", true);
@@ -119,21 +120,27 @@ async function handleInteraction(interaction) {
         discordUserId: interaction.user.id,
         universeId,
       });
-      await interaction.editReply(issueReply(response.status, data));
+      await interaction.editReply(brandedReply(issueReply(response.status, data)));
     } catch (error) {
       console.error(`Key issuance failed (${errorType(error)}).`);
-      await interaction.editReply("Could not reach the key service. Please try again later.");
+      await interaction.editReply(brandedReply("Could not reach the key service. Please try again later."));
     }
     return;
   }
 
   if (interaction.commandName === "revoke-key") {
     if (!interaction.guildId) {
-      await interaction.reply({ content: "Use this command in a connected Discord server.", ephemeral: true });
+      await interaction.reply({
+        ...brandedReply("Use this command in a connected Discord server."),
+        ephemeral: true,
+      });
       return;
     }
     if (!interaction.memberPermissions?.has("ManageGuild")) {
-      await interaction.reply({ content: "You need Manage Server permission.", ephemeral: true });
+      await interaction.reply({
+        ...brandedReply("You need Manage Server permission."),
+        ephemeral: true,
+      });
       return;
     }
     const member = interaction.options.getUser("member", true);
@@ -143,10 +150,10 @@ async function handleInteraction(interaction) {
         guildId: interaction.guildId,
         discordUserId: member.id,
       });
-      await interaction.editReply(revokeReply(response.status, data, member.id));
+      await interaction.editReply(brandedReply(revokeReply(response.status, data, member.id)));
     } catch (error) {
       console.error(`Key revocation failed (${errorType(error)}).`);
-      await interaction.editReply("Could not reach the key service.");
+      await interaction.editReply(brandedReply("Could not reach the key service."));
     }
   }
 }
@@ -163,9 +170,9 @@ client.on("interactionCreate", async interaction => {
     } else if (interaction.isChatInputCommand()) {
       const message = "Could not complete this interaction. Please try again later.";
       const sendReply = interaction.deferred
-        ? () => interaction.editReply(message)
+        ? () => interaction.editReply(brandedReply(message))
         : !interaction.replied
-          ? () => interaction.reply({ content: message, ephemeral: true })
+          ? () => interaction.reply({ ...brandedReply(message), ephemeral: true })
           : null;
       if (sendReply) {
         await sendReply().catch(responseError => {

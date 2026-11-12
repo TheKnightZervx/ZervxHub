@@ -4,7 +4,7 @@
 
 The isolated Cloudflare D1 database `zervxhub-staging-db` has been created and migrations `0000`–`0006` have been applied to that new, empty database. A Wrangler export was restored into a separate local SQLite database; the expected schema was present and customer tables were empty. No restore into a second remote D1 database was performed. `worker/wrangler.staging.toml` binds only the staging database and sets `workers_dev = false`, so the staging Worker is not internet-accessible until an access-controlled HTTPS route is configured. The existing configured databases were not used or modified. No Worker deployment or staging secret setup was performed. A separate Discord OAuth test application and its credentials are not available. No production data was used.
 
-The local static dashboard preview was checked at a 338 px viewport: it had no horizontal page overflow and the mobile navigation expanded with the expected links. The preview has no Worker API, so the dashboard displayed an unreadable API response. This is a local layout check, not a staging sign-in or dashboard acceptance result. Roblox Studio testing was not performed.
+The local static dashboard preview was checked at 320, 338, 375, and 768 px: it had no page-level horizontal overflow, and the 320 px navigation toggle exposed all five links with its expanded state updated. The preview has no Worker API, so the dashboard displayed an unreadable API response. This is a local layout check, not a staging sign-in or dashboard acceptance result. Roblox Studio testing was not performed.
 
 ## Local checks completed
 
@@ -29,11 +29,17 @@ These are local automated or browser-preview results, not live staging acceptanc
 
 1. **Done:** Created a separate empty D1 database named `zervxhub-staging-db`, and applied migrations `0000`–`0006`. The repository config is `worker/wrangler.staging.toml`; it does not reference the existing configured database. The Worker remains undeployed and `workers_dev` is disabled pending an access-controlled HTTPS route.
 2. Configure an HTTPS staging origin and set `CORS_ORIGIN` to that exact origin. Register the exact `https://<staging-host>/v2/auth/discord/callback` URI in a dedicated Discord OAuth test application.
-3. Configure staging-only Worker variables/secrets: `DISCORD_OAUTH_CLIENT_ID`, `DISCORD_OAUTH_CLIENT_SECRET`, `DISCORD_OAUTH_REDIRECT_URI`, `KEY_PEPPER`, `ADMIN_TOKEN`, `BOT_API_TOKEN`, `CORS_ORIGIN`, and `ALLOWED_UNIVERSE_IDS`. Do not copy production credentials or print secret values.
+3. Configure staging-only Worker variables/secrets: `DISCORD_OAUTH_CLIENT_ID`, `DISCORD_OAUTH_CLIENT_SECRET`, `DISCORD_OAUTH_REDIRECT_URI`, `KEY_PEPPER`, `ADMIN_TOKEN`, `BOT_API_TOKEN`, `CORS_ORIGIN`, and `ALLOWED_UNIVERSE_IDS`. `ADMIN_TOKEN` and `BOT_API_TOKEN` must be different values; the Worker fails closed when they match. Do not copy production credentials or print secret values.
 4. Configure a test Discord bot and sandbox guild with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` (or `DISCORD_GUILD_IDS`), `ZERVXHUB_API_URL`, and a matching staging-only `ZERVXHUB_BOT_TOKEN`.
 5. Create synthetic developer/customer accounts and an authorized private Roblox test experience. Set up the approved game's key as a `StringValue` in `ServerStorage`; never use production users, licenses, or keys.
 6. Configure staging-only edge rate limits, request logging with credential redaction, alerts, and a backup/restore procedure. Verify a restore before acceptance.
 7. **Done:** Reviewed and applied the ordered migrations `0000`–`0006` only to the verified, newly created staging database. Recheck migration metadata before any future staging deployment; never reapply already-recorded migrations manually.
+
+## $0 HTTPS endpoint review
+
+Cloudflare documents a Workers Free plan, but attaching a Worker to a custom domain requires an active Cloudflare zone and a hostname in a domain you own. Cloudflare Access can protect a Worker or custom hostname, but requires Zero Trust to be enabled and an account-authorized Access configuration. No already-owned staging hostname is available. `workers.dev` and Quick Tunnels would create internet-routable endpoints and are excluded by this mission, even if an access policy were added. There is therefore no verified $0 option that satisfies both the no-public-endpoint requirement and the current lack of a controlled hostname. Keep staging offline until an authorized hostname is available; no account or DNS settings were changed.
+
+References: [Workers pricing](https://developers.cloudflare.com/workers/platform/pricing/), [Custom Domains prerequisites](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/), and [Cloudflare Access for Workers](https://developers.cloudflare.com/workers/configuration/cloudflare-access/).
 
 ## Staging test sequence
 
@@ -78,6 +84,6 @@ Run this only after a private staging experience and staging Worker/D1 are avail
 - [ ] Review and apply migrations `0000`–`0006` through the approved deployment process with a verified backup and rollback/recovery plan.
 - [ ] Configure Cloudflare edge rate limits and alerts; the Worker’s in-memory limiter is isolate-local and is not a global abuse-control boundary.
 - [ ] Establish monitoring, error reporting, alert ownership, credential/log redaction, retention limits, and an incident-response/on-call process. These are not verified as configured.
-- [ ] Demonstrate D1 backup restoration and document recovery ownership and recovery objectives. No restore was performed.
+- [ ] Demonstrate restoration into a second remote staging D1 and document recovery ownership/objectives. The synthetic SQLite backup/restore and staging-export-to-local-SQLite restore passed; a remote D1-to-D1 restore remains unverified.
 - [ ] Publish reviewed privacy, terms, refund/cancellation, support, and data-retention policies; establish a staffed support path.
 - [ ] Do not enable payments or paid entitlements until a provider is separately selected, sandboxed, security-reviewed, and explicitly approved. No payment integration exists.

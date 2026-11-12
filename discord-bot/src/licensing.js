@@ -1,3 +1,18 @@
+import { EmbedBuilder } from "discord.js";
+
+export const ZERVXHUB_GOLD = 0xe3bd70;
+
+export function brandedReply(message) {
+  return {
+    embeds: [
+      new EmbedBuilder()
+        .setAuthor({ name: "ZervxHub" })
+        .setColor(ZERVXHUB_GOLD)
+        .setDescription(message),
+    ],
+  };
+}
+
 export function filterGameChoices(games, query) {
   const needle = String(query ?? "").trim().toLowerCase();
   if (!Array.isArray(games)) return [];
