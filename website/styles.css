@@ -264,3 +264,25 @@ h3 { margin: 0 0 .55rem; font-size: 1.1rem; }
   html { scroll-behavior: auto; }
   *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; }
 }
+
+/* Developer Studio snippet library */
+.studio-toolbar { display: grid; grid-template-columns: minmax(0, 1.5fr) minmax(190px, .7fr) auto; align-items: end; gap: 1rem; padding: 1rem; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+.studio-toolbar label { display: grid; gap: .4rem; color: #d7d0c3; font-size: .84rem; font-weight: 700; }
+.studio-toolbar input, .studio-toolbar select { width: 100%; min-height: 44px; padding: .65rem .75rem; border: 1px solid #ffffff30; border-radius: 7px; color: var(--text); background: #090a0c; font: inherit; }
+.studio-toolbar input:focus, .studio-toolbar select:focus { border-color: var(--gold); outline: 2px solid #e3bd7040; }
+.studio-count { margin: 0; color: var(--muted); font-size: .82rem; white-space: nowrap; }
+.snippet-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin-top: 1rem; }
+.snippet-card { min-width: 0; padding: 1.1rem; border: 1px solid var(--line); border-radius: 12px; background: linear-gradient(145deg, #17181d, #0e0f12); }
+.snippet-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: .8rem; }
+.snippet-card-header h2 { margin: .3rem 0 0; font-size: 1.08rem; }
+.snippet-language { color: var(--gold-bright); font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase; }
+.snippet-description { min-height: 2.7em; color: var(--muted); font-size: .88rem; }
+.snippet-card pre { max-width: 100%; overflow-x: auto; padding: .9rem; border: 1px solid #ffffff18; border-radius: 8px; color: #eee8dc; background: #08090b; font: .82rem/1.6 ui-monospace, SFMono-Regular, Consolas, monospace; tab-size: 2; }
+.snippet-card pre code { white-space: pre; }
+.snippet-tags { color: var(--muted); font-size: .72rem; overflow-wrap: anywhere; }
+.studio-status { min-height: 1.5rem; margin-top: .75rem; color: var(--gold-bright); font-size: .86rem; }
+.studio-empty { grid-column: 1 / -1; padding: 1.5rem; border: 1px dashed #ffffff30; border-radius: 10px; color: var(--muted); text-align: center; }
+@media (max-width: 760px) {
+  .studio-toolbar, .snippet-grid { grid-template-columns: 1fr; }
+  .studio-count { white-space: normal; }
+}
