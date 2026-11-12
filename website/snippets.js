@@ -328,7 +328,7 @@ function runJavaScript() {
     self.onerror = event => send("fatal", event.message || "Script error");
     (async () => {
       try {
-        await (async () => { ${source.replace(/<\\/script/gi, "<\\\\/script")} })();
+        await (async () => { ${source.replace(/<\/script/gi, "<\\/script")} })();
         send("done", "Execution finished.");
       } catch (error) {
         send("fatal", error && error.stack ? error.stack : String(error));
