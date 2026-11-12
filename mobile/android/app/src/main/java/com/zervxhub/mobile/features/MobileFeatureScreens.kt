@@ -3,6 +3,8 @@ package com.zervxhub.mobile.features
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -103,7 +105,7 @@ private fun PrivateChatPanel(group: Boolean) {
 }
 
 @Composable
-private fun DisabledTool(glyph: String, label: String) {
+private fun RowScope.DisabledTool(glyph: String, label: String) {
     Surface(
         modifier = Modifier.weight(1f),
         color = Panel,
@@ -122,7 +124,7 @@ private fun DisabledTool(glyph: String, label: String) {
 }
 
 @Composable
-private fun EmptyConversation(title: String, body: String) {
+private fun ColumnScope.EmptyConversation(title: String, body: String) {
     Surface(
         modifier = Modifier.fillMaxWidth().weight(1f),
         color = Panel,
