@@ -406,7 +406,7 @@ function createApi() {
     });
     return worker.fetch(req, env);
   }
-  return { DB, request, serverKeys };
+  return { DB, env, request, serverKeys };
 }
 
 async function json(response) { return response.json(); }
@@ -841,6 +841,28 @@ testCase("admin routes reject missing and wrong credentials", async () => {
     headers: adminHeaders,
   });
   assert.equal(malformed.status, 400);
+});
+
+testCase("admin and bot routes reject a shared admin and bot token", async () => {
+  const api = createApi();
+  api.env.BOT_API_TOKEN = ADMIN_TOKEN;
+
+  const v1Admin = await api.request("/v1/keys/issue", {
+    body: { discordUserId: MEMBER },
+    headers: adminHeaders,
+  });
+  const v2Admin = await api.request("/v2/admin/developers", {
+    body: { discordUserId: MEMBER, displayName: "Nope" },
+    headers: adminHeaders,
+  });
+  const bot = await api.request("/v2/discord/games", {
+    body: { guildId: GUILD_1 },
+    headers: { "x-bot-token": ADMIN_TOKEN },
+  });
+
+  assert.equal(v1Admin.status, 401);
+  assert.equal(v2Admin.status, 401);
+  assert.equal(bot.status, 401);
 });
 
 testCase("legacy v1 admin actions cannot revoke or validate another developer's keys", async () => {

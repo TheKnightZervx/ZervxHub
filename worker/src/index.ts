@@ -58,6 +58,7 @@ const parseIds = (value: string) =>
   value.split(",").map((v) => v.trim()).filter(Boolean);
 
 async function authorized(request: Request, env: Env): Promise<boolean> {
+  if (!env.ADMIN_TOKEN || env.ADMIN_TOKEN === env.BOT_API_TOKEN) return false;
   const supplied = request.headers.get("x-admin-token") ?? "";
   return timingSafeEqual(supplied, env.ADMIN_TOKEN);
 }
