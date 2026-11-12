@@ -4,7 +4,7 @@ on:
   pull_request:
     paths: ["mobile/**", ".github/workflows/android-ci.yml"]
   push:
-    branches: [main, mission3-base]
+    branches: [main, mission3-base, "mission4-*"]
     paths: ["mobile/**", ".github/workflows/android-ci.yml"]
 
 permissions:
