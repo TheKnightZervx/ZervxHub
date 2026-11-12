@@ -62,6 +62,10 @@ class MobileApiClient(context: Context) {
         try { call("POST", "v2/mobile/auth/session/logout", JSONObject()) } finally { tokens.clear() }
     }
 
+    suspend fun logoutAll() {
+        try { call("POST", "v2/mobile/auth/session/logout-all", JSONObject()) } finally { tokens.clear() }
+    }
+
     suspend fun globalMessages(): List<MobileMessage> =
         call("GET", "v2/mobile/chat/global/messages?limit=40").getJSONArray("messages").toMessages()
 
