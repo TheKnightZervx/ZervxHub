@@ -95,9 +95,22 @@ export default {
       return json({ error: "Method not allowed" }, 405, origin);
     }
 
+    const contentLength = Number(request.headers.get("content-length") ?? 0);
+    if (Number.isFinite(contentLength) && contentLength > 16_384) {
+      return json({ error: "Request too large" }, 413, origin);
+    }
+
     let body: Json;
     try {
-      body = await request.json() as Json;
+      const rawBody = await request.text();
+      if (new TextEncoder().encode(rawBody).byteLength > 16_384) {
+        return json({ error: "Request too large" }, 413, origin);
+      }
+      const parsed: unknown = JSON.parse(rawBody);
+      if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
+        return json({ error: "Invalid JSON body" }, 400, origin);
+      }
+      body = parsed as Json;
     } catch {
       return json({ error: "Invalid JSON body" }, 400, origin);
     }
