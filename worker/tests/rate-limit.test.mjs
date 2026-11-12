@@ -57,6 +57,17 @@ test("normal rate limiting: permits requests within limit and throttles when exc
   assert.equal(overLimit, true, "Request exceeding limit should be rate-limited");
 });
 
+test("identity discriminator rate limits persist when the caller IP changes", () => {
+  resetRateLimits();
+  const limit = 2;
+  assert.equal(isRateLimited(req("198.51.100.1"), "player-limit", limit, 60_000, "roblox-user-123"), false);
+  assert.equal(isRateLimited(req("198.51.100.2"), "player-limit", limit, 60_000, "roblox-user-123"), false);
+  assert.equal(isRateLimited(req("198.51.100.3"), "player-limit", limit, 60_000, "roblox-user-123"), true);
+
+  // A different identity still has its own allowance.
+  assert.equal(isRateLimited(req("198.51.100.3"), "player-limit", limit, 60_000, "roblox-user-456"), false);
+});
+
 test("expired bucket cleanup: removes expired entries and frees capacity", async () => {
   resetRateLimits();
   const windowMs = 40;
