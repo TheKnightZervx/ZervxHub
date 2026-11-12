@@ -149,6 +149,7 @@ const renderLicenses = (licenses) => {
       cell(gameNames.get(license.universeIds) || license.universeIds),
       cell(status),
       cell(formatDate(license.expiresAt)),
+      cell(license.boundRobloxUserId || "Not yet bound"),
       cell(`${license.validationCount} · ${formatDate(license.lastUsedAt)}`)
     );
     const actions = document.createElement("td");
@@ -203,7 +204,7 @@ const renderLicenses = (licenses) => {
   if (!licenses.length) {
     const row = document.createElement("tr");
     const empty = cell("No licenses issued yet.");
-    empty.colSpan = 6;
+    empty.colSpan = 7;
     row.append(empty);
     list.append(row);
   }

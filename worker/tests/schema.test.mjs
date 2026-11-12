@@ -13,6 +13,7 @@ async function createDatabase() {
     "0001_multi_developer_foundation.sql",
     "0002_lookup_indexes.sql",
     "0003_dashboard_accounts_and_subscriptions.sql",
+    "0004_license_account_binding.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
   }
@@ -151,11 +152,12 @@ test("dashboard migration preserves existing rows and backfills public identifie
   ).run("existing-license-hash", "222222222222222", 12, 100, "12345", "existing-developer");
 
   db.exec(await readFile(fileURLToPath(migrationUrl("0003_dashboard_accounts_and_subscriptions.sql")), "utf8"));
+  db.exec(await readFile(fileURLToPath(migrationUrl("0004_license_account_binding.sql")), "utf8"));
   const apiKey = db.prepare(
     "SELECT developer_id, public_id FROM developer_api_keys WHERE key_hash = ?"
   ).get("existing-api-hash");
   const license = db.prepare(
-    "SELECT developer_id, public_id, validation_count, status FROM keys WHERE key_hash = ?"
+    "SELECT developer_id, public_id, validation_count, status, bound_roblox_user_id FROM keys WHERE key_hash = ?"
   ).get("existing-license-hash");
   assert.equal(apiKey.developer_id, "existing-developer");
   assert.match(apiKey.public_id, /^[a-f0-9]{32}$/);
@@ -163,5 +165,6 @@ test("dashboard migration preserves existing rows and backfills public identifie
   assert.match(license.public_id, /^[a-f0-9]{32}$/);
   assert.equal(license.validation_count, 0);
   assert.equal(license.status, "active");
+  assert.equal(license.bound_roblox_user_id, null);
   db.close();
 });

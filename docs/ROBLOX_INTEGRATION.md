@@ -17,6 +17,7 @@ The LocalScript sends the entered key to the server through a `RemoteFunction`; 
 ## Expected behavior
 
 - An approved Universe ID, active developer, active unexpired license, and matching game allow verification.
+- A license binds to the first Roblox account that successfully validates it; further attempts from another account are denied.
 - Expired, revoked, unapproved, or cross-developer keys fail closed.
 - The server clears the authorized attribute before every new attempt and when a player joins.
 - Verification failures display a generic status to the player. Server-side warnings may contain request diagnostics; sanitize them before sharing logs.

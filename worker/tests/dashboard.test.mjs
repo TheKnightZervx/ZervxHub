@@ -20,6 +20,8 @@ const USER_TWO = "222222222222222";
 const MEMBER = "333333333333333";
 
 class SqliteD1 {
+  batchTail = Promise.resolve();
+
   constructor(db) {
     this.db = db;
   }
@@ -47,6 +49,12 @@ class SqliteD1 {
   }
 
   async batch(statements) {
+    const previous = this.batchTail;
+    let release;
+    this.batchTail = new Promise((resolve) => {
+      release = resolve;
+    });
+    await previous;
     this.db.exec("BEGIN");
     try {
       const results = [];
@@ -56,6 +64,8 @@ class SqliteD1 {
     } catch (error) {
       this.db.exec("ROLLBACK");
       throw error;
+    } finally {
+      release();
     }
   }
 }
@@ -67,6 +77,7 @@ async function createApi({ oauth = true } = {}) {
     "0001_multi_developer_foundation.sql",
     "0002_lookup_indexes.sql",
     "0003_dashboard_accounts_and_subscriptions.sql",
+    "0004_license_account_binding.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(new URL(`../migrations/${name}`, import.meta.url)), "utf8"));
   }
@@ -320,10 +331,18 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
     assert.deepEqual(await json(crossRevoke), { revoked: false });
 
     const validation = await api.request("/v2/keys/validate", {
-      body: { key: created.key, universeId: "12345", robloxUserId: MEMBER },
+      body: { key: created.key, universeId: "12345", robloxUserId: USER_ONE },
     });
     assert.equal(validation.status, 200);
     assert.equal((await json(validation)).valid, true);
+    assert.equal(api.db.prepare("SELECT bound_roblox_user_id FROM keys WHERE public_id = ?")
+      .get(created.licenseId).bound_roblox_user_id, USER_ONE);
+
+    const replay = await api.request("/v2/keys/validate", {
+      body: { key: created.key, universeId: "12345", robloxUserId: USER_TWO },
+    });
+    assert.equal(replay.status, 403);
+    assert.equal((await json(replay)).reason, "license_bound_to_another_user");
 
     const licenses = await api.request("/v2/dashboard/licenses", {
       method: "GET",
@@ -332,6 +351,7 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
     const listed = (await json(licenses)).licenses[0];
     assert.equal(listed.id, created.licenseId);
     assert.equal(listed.validationCount, 1);
+    assert.equal(listed.boundRobloxUserId, USER_ONE);
     const history = await api.request(`/v2/dashboard/licenses/${created.licenseId}/history`, {
       method: "GET",
       headers: { cookie: one.cookie },
@@ -457,6 +477,7 @@ test("replacing an expired key records its revocation in license history", async
       body: { universeId: "12345", name: "One Game" },
       headers: browserHeaders(session.cookie),
     });
+
     assert.equal(registration.status, 201);
     const approval = await api.request("/v2/admin/games/review", {
       body: { universeId: "12345", status: "approved" },
@@ -487,6 +508,75 @@ test("replacing an expired key records its revocation in license history", async
       `SELECT COUNT(*) AS count FROM license_events
        WHERE license_id = ? AND event_type = 'revoked'`
     ).get(originalLicense.licenseId).count, 1);
+  } finally {
+    await api.close();
+  }
+});
+
+test("concurrent first validations bind a license to exactly one Roblox account", async () => {
+  const api = await createApi();
+  api.resetRateLimits();
+  try {
+    const session = await api.signIn(USER_ONE, "Developer One");
+    const registration = await api.request("/v2/dashboard/games", {
+      body: { universeId: "12345", name: "One Game" },
+      headers: browserHeaders(session.cookie),
+    });
+    assert.equal(registration.status, 201);
+    const approval = await api.request("/v2/admin/games/review", {
+      body: { universeId: "12345", status: "approved" },
+      headers: adminHeaders,
+    });
+    assert.equal(approval.status, 200);
+    const issued = await api.request("/v2/dashboard/licenses", {
+      body: { discordUserId: MEMBER, universeId: "12345", expiresInHours: 24 },
+      headers: browserHeaders(session.cookie),
+    });
+    const license = await json(issued);
+
+    const responses = await Promise.all([USER_ONE, USER_TWO].map((robloxUserId) =>
+      api.request("/v2/keys/validate", {
+        body: { key: license.key, universeId: "12345", robloxUserId },
+      })
+    ));
+    assert.deepEqual(responses.map((response) => response.status).sort(), [200, 403]);
+    const stored = api.db.prepare(
+      "SELECT bound_roblox_user_id, validation_count FROM keys WHERE public_id = ?"
+    ).get(license.licenseId);
+    assert.ok([USER_ONE, USER_TWO].includes(stored.bound_roblox_user_id));
+    assert.equal(stored.validation_count, 1);
+    assert.equal(api.db.prepare(
+      "SELECT COALESCE(SUM(validation_count), 0) AS count FROM license_validation_daily WHERE license_id = ?"
+    ).get(license.licenseId).count, 1);
+  } finally {
+    await api.close();
+  }
+});
+
+test("legacy V1 licenses require and bind a Roblox account on first validation", async () => {
+  const api = await createApi();
+  api.resetRateLimits();
+  try {
+    const issued = await api.request("/v1/keys/issue", {
+      body: { discordUserId: MEMBER, allowedUniverseIds: ["12345"] },
+      headers: adminHeaders,
+    });
+    assert.equal(issued.status, 201);
+    const { key } = await json(issued);
+    const missingIdentity = await api.request("/v1/keys/validate", {
+      body: { key, universeId: "12345" },
+    });
+    assert.equal(missingIdentity.status, 400);
+
+    const firstUse = await api.request("/v1/keys/validate", {
+      body: { key, universeId: "12345", robloxUserId: USER_ONE },
+    });
+    assert.equal(firstUse.status, 200);
+    const replay = await api.request("/v1/keys/validate", {
+      body: { key, universeId: "12345", robloxUserId: USER_TWO },
+    });
+    assert.equal(replay.status, 403);
+    assert.equal((await json(replay)).reason, "license_bound_to_another_user");
   } finally {
     await api.close();
   }

@@ -141,10 +141,8 @@ export default {
         typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
 
       const invalidRobloxUserId =
-        (body.robloxUserId !== undefined &&
-          body.robloxUserId !== null &&
-          typeof body.robloxUserId !== "string") ||
-        (robloxUserId !== "" && !/^[0-9]{1,24}$/.test(robloxUserId));
+        typeof body.robloxUserId !== "string" ||
+        !/^[0-9]{1,24}$/.test(robloxUserId);
 
       if (
         key.length < 20 ||
@@ -167,12 +165,15 @@ export default {
       );
 
       const row = await env.DB.prepare(
-        "SELECT status, expires_at, allowed_universe_ids, key_hash FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL"
+        `SELECT status, expires_at, allowed_universe_ids, key_hash,
+           bound_roblox_user_id
+         FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL`
       ).bind(keyHash, legacyHash).first<{
         status: string;
         expires_at: number;
         allowed_universe_ids: string | null;
         key_hash: string;
+        bound_roblox_user_id: string | null;
       }>();
 
       if (!row || row.status !== "active") {
@@ -195,9 +196,36 @@ export default {
         return json({ valid: false, reason: "game_not_allowed" }, 403, origin);
       }
 
-      await env.DB.prepare(
-        "UPDATE keys SET last_used_at = ?1, last_roblox_user_id = ?2 WHERE key_hash = ?3"
-      ).bind(now, robloxUserId || null, row.key_hash).run();
+      if (row.bound_roblox_user_id && row.bound_roblox_user_id !== robloxUserId) {
+        return json({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+      }
+
+      const validation = await env.DB.prepare(
+        `UPDATE keys
+         SET last_used_at = ?1, last_roblox_user_id = ?2,
+             bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?3)
+         WHERE key_hash = ?4 AND developer_id IS NULL AND status = 'active'
+           AND expires_at > ?5
+           AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?6)`
+      ).bind(now, robloxUserId, robloxUserId, row.key_hash, now, robloxUserId).run();
+
+      if (validation.meta.changes !== 1) {
+        const latest = await env.DB.prepare(
+          `SELECT status, expires_at, bound_roblox_user_id
+           FROM keys WHERE key_hash = ?1 AND developer_id IS NULL`
+        ).bind(row.key_hash).first<{
+          status: string;
+          expires_at: number;
+          bound_roblox_user_id: string | null;
+        }>();
+        if (latest?.bound_roblox_user_id && latest.bound_roblox_user_id !== robloxUserId) {
+          return json({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+        }
+        if (latest?.status === "active" && latest.expires_at <= now) {
+          return json({ valid: false, reason: "expired" }, 401, origin);
+        }
+        return json({ valid: false, reason: "invalid_or_revoked" }, 401, origin);
+      }
 
       // Seamlessly upgrade legacy hash
       if (row.key_hash === legacyHash && keyHash !== legacyHash) {

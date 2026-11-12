@@ -479,6 +479,7 @@ export async function handleV2(
            CASE WHEN status = 'active' AND expires_at <= ? THEN 'expired' ELSE status END AS status,
            created_at AS createdAt, expires_at AS expiresAt,
            last_used_at AS lastUsedAt, validation_count AS validationCount,
+           bound_roblox_user_id AS boundRobloxUserId,
            allowed_universe_ids AS universeIds
          FROM keys WHERE developer_id = ?
          ORDER BY created_at DESC LIMIT ?`
@@ -490,6 +491,7 @@ export async function handleV2(
         expiresAt: number;
         lastUsedAt: number | null;
         validationCount: number;
+        boundRobloxUserId: string | null;
         universeIds: string;
       }>();
       return respond({ licenses: licenses.results }, 200, origin);
@@ -1080,7 +1082,8 @@ export async function handleV2(
       env.KEY_PEPPER
     );
     const row = await env.DB.prepare(
-      `SELECT status, expires_at, allowed_universe_ids, developer_id, key_hash, public_id
+      `SELECT status, expires_at, allowed_universe_ids, developer_id, key_hash, public_id,
+         bound_roblox_user_id
        FROM keys WHERE key_hash = ? OR key_hash = ?`
     ).bind(keyHash, legacyHash).first<{
       status: string;
@@ -1089,6 +1092,7 @@ export async function handleV2(
       developer_id: string | null;
       key_hash: string;
       public_id: string;
+      bound_roblox_user_id: string | null;
     }>();
 
     const now = Math.floor(Date.now() / 1000);
@@ -1134,23 +1138,74 @@ export async function handleV2(
       return respond({ valid: false, reason: "game_not_allowed" }, 403, origin);
     }
 
+    if (row.bound_roblox_user_id && row.bound_roblox_user_id !== robloxUserId) {
+      return respond({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+    }
+
     const usageDate = new Date(now * 1000).toISOString().slice(0, 10);
-    await env.DB.batch([
+    const results = await env.DB.batch([
       env.DB.prepare(
         `UPDATE keys SET last_used_at = ?, last_roblox_user_id = ?,
+           bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?),
            validation_count = validation_count + 1
-       WHERE key_hash = ? AND developer_id = ?`
-      ).bind(now, robloxUserId || null, row.key_hash, game.developer_id),
+       WHERE key_hash = ? AND developer_id = ? AND status = 'active'
+         AND expires_at > ?
+         AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?)`
+      ).bind(
+        now,
+        robloxUserId,
+        robloxUserId,
+        row.key_hash,
+        game.developer_id,
+        now,
+        robloxUserId
+      ),
       env.DB.prepare(
         `INSERT INTO license_validation_daily
            (license_id, developer_id, usage_date, universe_id, validation_count, last_validated_at)
-         VALUES (?, ?, ?, ?, 1, ?)
+         SELECT ?, ?, ?, ?, 1, ?
+         WHERE EXISTS (
+           SELECT 1 FROM keys WHERE key_hash = ? AND developer_id = ?
+             AND status = 'active' AND expires_at > ?
+             AND bound_roblox_user_id = ?
+         )
          ON CONFLICT(license_id, usage_date) DO UPDATE SET
            validation_count = validation_count + 1,
            last_validated_at = excluded.last_validated_at,
            universe_id = excluded.universe_id`
-      ).bind(row.public_id, game.developer_id, usageDate, universeId, now),
+      ).bind(
+        row.public_id,
+        game.developer_id,
+        usageDate,
+        universeId,
+        now,
+        row.key_hash,
+        game.developer_id,
+        now,
+        robloxUserId
+      ),
     ]);
+
+    if (results[0]?.meta.changes !== 1) {
+      const latest = await env.DB.prepare(
+        `SELECT status, expires_at, bound_roblox_user_id
+         FROM keys WHERE key_hash = ? AND developer_id = ?`
+      ).bind(row.key_hash, game.developer_id).first<{
+        status: string;
+        expires_at: number;
+        bound_roblox_user_id: string | null;
+      }>();
+      if (latest?.bound_roblox_user_id && latest.bound_roblox_user_id !== robloxUserId) {
+        return respond({ valid: false, reason: "license_bound_to_another_user" }, 403, origin);
+      }
+      if (!latest || latest.status !== "active") {
+        return respond({ valid: false, reason: "invalid_or_revoked" }, 401, origin);
+      }
+      if (latest.expires_at <= now) {
+        return respond({ valid: false, reason: "expired" }, 401, origin);
+      }
+      return respond({ valid: false, reason: "invalid_or_revoked" }, 401, origin);
+    }
 
     // Seamlessly upgrade legacy SHA-256 hash to HMAC-SHA-256 with KEY_PEPPER
     if (row.key_hash === legacyHash && keyHash !== legacyHash) {

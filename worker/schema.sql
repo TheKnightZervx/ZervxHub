@@ -48,7 +48,8 @@ CREATE TABLE IF NOT EXISTS keys (
   developer_id TEXT REFERENCES developers(id),
   public_id TEXT,
   revoked_at INTEGER,
-  validation_count INTEGER NOT NULL DEFAULT 0
+  validation_count INTEGER NOT NULL DEFAULT 0,
+  bound_roblox_user_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_keys_discord_status

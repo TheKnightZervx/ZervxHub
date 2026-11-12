@@ -93,6 +93,8 @@ class MemoryD1 {
             allowed_universe_ids: key.allowedUniverseIds,
             developer_id: key.developerId,
             key_hash: key.hash || hash1,
+            public_id: key.publicId,
+            bound_roblox_user_id: key.boundRobloxUserId ?? null,
           } : null;
         }
         if (normalized.includes("FROM keys WHERE") && normalized.includes("developer_id IS NULL")) {
@@ -103,6 +105,7 @@ class MemoryD1 {
             expires_at: key.expiresAt,
             allowed_universe_ids: key.allowedUniverseIds,
             key_hash: key.hash || hash1,
+            bound_roblox_user_id: key.boundRobloxUserId ?? null,
           } : null;
         }
         if (normalized.startsWith("SELECT i.developer_id FROM discord_integrations")) {
@@ -240,11 +243,22 @@ class MemoryD1 {
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE keys SET last_used_at")) {
-          const [lastUsedAt, robloxUserId, hash, developerId] = args;
+          const legacy = normalized.includes("developer_id IS NULL");
+          const [lastUsedAt, robloxUserId, boundUserId, hash] = args;
+          const developerId = legacy ? null : args[4];
+          const expiresAt = args[legacy ? 4 : 5];
+          const expectedBoundUserId = args[legacy ? 5 : 6];
           const key = db.keys.get(hash);
-          if (!key || (developerId !== undefined && key.developerId !== developerId)) return { meta: { changes: 0 } };
+          if (
+            !key ||
+            (legacy ? key.developerId != null : key.developerId !== developerId) ||
+            key.status !== "active" ||
+            key.expiresAt <= expiresAt ||
+            (key.boundRobloxUserId && key.boundRobloxUserId !== expectedBoundUserId)
+          ) return { meta: { changes: 0 } };
           key.lastUsedAt = lastUsedAt;
           key.lastRobloxUserId = robloxUserId;
+          key.boundRobloxUserId = boundUserId;
           return { meta: { changes: 1 } };
         }
         return { meta: { changes: 0 } };
@@ -559,7 +573,7 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   const optionalUserId = await api.request("/v1/keys/validate", {
     body: { key: "x".repeat(20), universeId: "12345" },
   });
-  assert.equal(optionalUserId.status, 401);
+  assert.equal(optionalUserId.status, 400);
 
   const developer = await createDeveloper(api, GUILD_1, "One");
   await registerApprovedGame(api, developer.apiKey, "12345", "Game");
