@@ -2,7 +2,7 @@
 
 ## Current status
 
-No isolated staging Worker or D1 environment is configured in `worker/wrangler.toml`; it contains one D1 binding and no `[env.staging]`. Wrangler authentication is available, but this repository does not identify a safe staging resource, so no remote D1 listing, migration, secret inspection, or deployment was attempted. Discord OAuth credentials are not available in the local test setup. No production data was used.
+The isolated Cloudflare D1 database `zervxhub-staging-db` has been created and migrations `0000`–`0006` have been applied to that new, empty database. `worker/wrangler.staging.toml` binds only this database and sets `workers_dev = false`, so the staging Worker is not internet-accessible until an access-controlled HTTPS route is configured. The existing configured databases were not used or modified. No Worker deployment, staging secret setup, or remote backup was performed. A separate Discord OAuth test application and its credentials are not available. No production data was used.
 
 The local static dashboard preview was checked at a 338 px viewport: it had no horizontal page overflow and the mobile navigation expanded with the expected links. The preview has no Worker API, so the dashboard displayed an unreadable API response. This is a local layout check, not a staging sign-in or dashboard acceptance result. Roblox Studio testing was not performed.
 
@@ -20,20 +20,20 @@ The local static dashboard preview was checked at a 338 px viewport: it had no h
 | Roblox account binding | Worker tests use synthetic IDs; direct unauthenticated validation and replay attempts fail. No Roblox Studio runtime test was performed. |
 | Subscription requests | Worker tests verify requests do not change plans or activate paid entitlements. |
 | Unauthorized access and rate limiting | Local tests cover invalid credentials, cross-tenant access, per-player validation limits, and bounded in-memory rate-limit state. Cloudflare edge limits were not tested. |
-| D1 migrations and backup | In-memory SQLite tests compare the consolidated schema with migrations `0000`–`0006` and verify existing rows, ownership constraints, indexes, and replay-nonce storage. A separate synthetic local SQLite database applied migrations `0000`–`0006`; a license binding, game credential, and replay row survived SQLite backup and restore. No remote database or staging backup was used. |
+| D1 migrations and backup | Migrations `0000`–`0006` were applied in order to the new empty staging database. In-memory SQLite tests compare the consolidated schema with the migration chain and verify existing rows, ownership constraints, indexes, and replay-nonce storage. A separate synthetic local SQLite database applied the same migrations; a license binding, game credential, and replay row survived SQLite backup and restore. No customer data was used; staging backup/restore remains untested. |
 | Mobile dashboard usability | Narrow viewport and mobile navigation checked in the local static preview; API-backed actions need staging verification. |
 
 These are local automated or browser-preview results, not live staging acceptance.
 
 ## Staging prerequisites
 
-1. Provision a separate Cloudflare Worker environment and a new D1 database containing only synthetic data. Identify its resource explicitly before running any remote migration. Do not point staging at the database currently named in the repository configuration.
+1. **Done:** Created a separate empty D1 database named `zervxhub-staging-db`, and applied migrations `0000`–`0006`. The repository config is `worker/wrangler.staging.toml`; it does not reference the existing configured database. The Worker remains undeployed and `workers_dev` is disabled pending an access-controlled HTTPS route.
 2. Configure an HTTPS staging origin and set `CORS_ORIGIN` to that exact origin. Register the exact `https://<staging-host>/v2/auth/discord/callback` URI in a dedicated Discord OAuth test application.
 3. Configure staging-only Worker variables/secrets: `DISCORD_OAUTH_CLIENT_ID`, `DISCORD_OAUTH_CLIENT_SECRET`, `DISCORD_OAUTH_REDIRECT_URI`, `KEY_PEPPER`, `ADMIN_TOKEN`, `BOT_API_TOKEN`, `CORS_ORIGIN`, and `ALLOWED_UNIVERSE_IDS`. Do not copy production credentials or print secret values.
 4. Configure a test Discord bot and sandbox guild with `DISCORD_TOKEN`, `DISCORD_CLIENT_ID`, `DISCORD_GUILD_ID` (or `DISCORD_GUILD_IDS`), `ZERVXHUB_API_URL`, and a matching staging-only `ZERVXHUB_BOT_TOKEN`.
 5. Create synthetic developer/customer accounts and an authorized private Roblox test experience. Set up the approved game's key as a `StringValue` in `ServerStorage`; never use production users, licenses, or keys.
 6. Configure staging-only edge rate limits, request logging with credential redaction, alerts, and a backup/restore procedure. Verify a restore before acceptance.
-7. Review migrations `0005_game_server_credentials.sql` and `0006_game_validation_replay_protection.sql`, then apply the complete ordered migration chain only to the verified staging D1 database. Record the target and migration results without recording secrets.
+7. **Done:** Reviewed and applied the ordered migrations `0000`–`0006` only to the verified, newly created staging database. Recheck migration metadata before any future staging deployment; never reapply already-recorded migrations manually.
 
 ## Staging test sequence
 
