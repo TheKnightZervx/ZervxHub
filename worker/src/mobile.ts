@@ -384,7 +384,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       return json({ conversationId: id, kind: "group", name, memberCount: members.length }, 201);
     }
 
-    const privateMediaMatch = path.match(/^\\/v2\\/mobile\\/chat\\/conversations\\/([0-9a-f-]{36})\\/(attachments|voice-messages|calls|signaling)$/i);
+    const privateMediaMatch = path.match(/^\/v2\/mobile\/chat\/conversations\/([0-9a-f-]{36})\/(attachments|voice-messages|calls|signaling)$/i);
     if (method === "POST" && privateMediaMatch) {
       const conversationId = privateMediaMatch[1];
       if (!await isMember(env, conversationId, user.id)) return json({ error: "Conversation not found" }, 404);
