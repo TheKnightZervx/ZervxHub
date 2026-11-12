@@ -3,7 +3,7 @@
 ## Scope delivered on this branch
 
 - Passwordless email OTP request and verification routes.
-- HMAC-SHA-256 OTP and bearer-session token storage using the existing `KEY_PEPPER` secret.
+- HMAC-SHA-256 OTP and bearer-session token storage using a separate `MOBILE_AUTH_PEPPER` secret with domain-separated HMACs.
 - Five-minute, single-use codes with five verification attempts, 60-second resend cooldown, and persistent D1 rate limits by email and IP.
 - Session refresh rotation, current-session logout, and logout-all.
 - Authenticated global text/Unicode-emoji chat, direct conversations, private groups, bounded message pagination, blocking, and abuse reports.
@@ -40,7 +40,7 @@ The Worker accepts an optional Cloudflare service binding named `MAILER`. It sen
 - has abuse controls and provider quota handling;
 - returns a success status only after accepting delivery.
 
-No mail service is currently configured. If `MAILER` is absent, OTP requests return 503 without creating or exposing a code. Do not connect a paid provider or enable billing without owner approval.
+No `MOBILE_AUTH_PEPPER` secret or mail service is currently configured for production. If `MAILER` is absent, OTP requests return 503 without creating or exposing a code. Do not connect a paid provider or enable billing without owner approval.
 
 ## Required setup and verification
 
