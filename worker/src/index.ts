@@ -167,7 +167,7 @@ export default {
       const row = await env.DB.prepare(
         `SELECT status, expires_at, allowed_universe_ids, key_hash,
            bound_roblox_user_id
-         FROM keys WHERE (key_hash = ?1 OR key_hash = ?2) AND developer_id IS NULL`
+         FROM keys WHERE (key_hash = ? OR key_hash = ?) AND developer_id IS NULL`
       ).bind(keyHash, legacyHash).first<{
         status: string;
         expires_at: number;
@@ -184,7 +184,7 @@ export default {
 
       if (row.expires_at <= now) {
         await env.DB.prepare(
-          "UPDATE keys SET status = 'expired' WHERE key_hash = ?1"
+          "UPDATE keys SET status = 'expired' WHERE key_hash = ?"
         ).bind(row.key_hash).run();
 
         return json({ valid: false, reason: "expired" }, 401, origin);
@@ -202,17 +202,17 @@ export default {
 
       const validation = await env.DB.prepare(
         `UPDATE keys
-         SET last_used_at = ?1, last_roblox_user_id = ?2,
-             bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?3)
-         WHERE key_hash = ?4 AND developer_id IS NULL AND status = 'active'
-           AND expires_at > ?5
-           AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?6)`
+         SET last_used_at = ?, last_roblox_user_id = ?,
+             bound_roblox_user_id = COALESCE(bound_roblox_user_id, ?)
+         WHERE key_hash = ? AND developer_id IS NULL AND status = 'active'
+           AND expires_at > ?
+           AND (bound_roblox_user_id IS NULL OR bound_roblox_user_id = ?)`
       ).bind(now, robloxUserId, robloxUserId, row.key_hash, now, robloxUserId).run();
 
       if (validation.meta.changes !== 1) {
         const latest = await env.DB.prepare(
           `SELECT status, expires_at, bound_roblox_user_id
-           FROM keys WHERE key_hash = ?1 AND developer_id IS NULL`
+           FROM keys WHERE key_hash = ? AND developer_id IS NULL`
         ).bind(row.key_hash).first<{
           status: string;
           expires_at: number;
@@ -231,7 +231,7 @@ export default {
       if (row.key_hash === legacyHash && keyHash !== legacyHash) {
         try {
           await env.DB.prepare(
-            "UPDATE keys SET key_hash = ?1 WHERE key_hash = ?2"
+            "UPDATE keys SET key_hash = ? WHERE key_hash = ?"
           ).bind(keyHash, legacyHash).run();
         } catch {
           // Ignore migration conflicts
@@ -282,19 +282,20 @@ export default {
 
       const results = await env.DB.batch([
         env.DB.prepare(
-          "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active' AND created_at <= ?2 AND developer_id IS NULL"
+          "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ? AND status = 'active' AND created_at <= ? AND developer_id IS NULL"
         ).bind(discordUserId, now - 86400),
 
         env.DB.prepare(
           "INSERT INTO keys (key_hash, discord_user_id, status, created_at, expires_at, allowed_universe_ids) " +
-          "SELECT ?1, ?2, 'active', ?3, ?4, ?5 WHERE NOT EXISTS (" +
-          "SELECT 1 FROM keys WHERE discord_user_id = ?2 AND created_at > ?6 AND developer_id IS NULL)"
+          "SELECT ?, ?, 'active', ?, ?, ? WHERE NOT EXISTS (" +
+          "SELECT 1 FROM keys WHERE discord_user_id = ? AND created_at > ? AND developer_id IS NULL)"
         ).bind(
           keyHash,
           discordUserId,
           now,
           expiresAt,
           universeIds.join(","),
+          discordUserId,
           now - 86400
         ),
       ]);
@@ -329,10 +330,10 @@ export default {
 
       const result = key
         ? await env.DB.prepare(
-            "UPDATE keys SET status = 'revoked' WHERE (key_hash = ?1 OR key_hash = ?2) AND status = 'active' AND developer_id IS NULL"
+            "UPDATE keys SET status = 'revoked' WHERE (key_hash = ? OR key_hash = ?) AND status = 'active' AND developer_id IS NULL"
           ).bind(keyHash, legacyHash).run()
         : await env.DB.prepare(
-            "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ?1 AND status = 'active' AND developer_id IS NULL"
+            "UPDATE keys SET status = 'revoked' WHERE discord_user_id = ? AND status = 'active' AND developer_id IS NULL"
           ).bind(discordUserId).run();
 
       return json({ revoked: result.meta.changes > 0 }, 200, origin);
