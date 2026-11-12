@@ -825,6 +825,31 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   assert.equal(issueAfter.response.status, 401);
 });
 
+testCase("V1 and V2 reject oversized streamed request bodies", async () => {
+  const api = createApi();
+  const oversized = "x".repeat(17_000);
+  const v1 = await api.request("/v1/keys/issue", { body: oversized });
+  assert.equal(v1.status, 413);
+  const v2 = await api.request("/v2/games/register", { body: oversized });
+  assert.equal(v2.status, 413);
+});
+
+testCase("V2 rejects malformed JSON request bodies", async () => {
+  const api = createApi();
+  const response = await api.request("/v2/games/register", { body: "{" });
+  assert.equal(response.status, 400);
+});
+
+testCase("legacy V1 admin authentication failures are rate limited", async () => {
+  const api = createApi();
+  const responses = [];
+  for (let index = 0; index < 41; index++) {
+    responses.push(await api.request("/v1/keys/issue", { body: { discordUserId: MEMBER } }));
+  }
+  assert.equal(responses[39].status, 401);
+  assert.equal(responses[40].status, 429);
+});
+
 testCase("admin routes reject missing and wrong credentials", async () => {
   const api = createApi();
   const missing = await api.request("/v2/admin/developers", {
