@@ -305,6 +305,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     }
 
     if (method === "POST" && path === "/v2/mobile/chat/direct") {
+      if (await consumeLimit(env, "chat-direct-user", user.id, 10, 3600)) return json({ error: "Too many new conversations" }, 429);
       const body = await readJson(request);
       const recipientId = typeof body?.recipientUserId === "string" ? body.recipientUserId : "";
       const recipientEmail = typeof body?.recipientEmail === "string" ? body.recipientEmail.trim().toLowerCase() : "";
@@ -341,6 +342,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     }
 
     if (method === "POST" && path === "/v2/mobile/chat/groups") {
+      if (await consumeLimit(env, "chat-group-user", user.id, 5, 3600)) return json({ error: "Too many groups created" }, 429);
       const body = await readJson(request);
       const name = typeof body?.name === "string" ? body.name.trim() : "";
       const requestedIds = Array.isArray(body?.memberUserIds)
@@ -420,6 +422,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     }
 
     if (method === "POST" && path === "/v2/mobile/chat/block") {
+      if (await consumeLimit(env, "chat-block-user", user.id, 20, 3600)) return json({ error: "Too many block actions" }, 429);
       const body = await readJson(request);
       const blockedId = typeof body?.userId === "string" ? body.userId : "";
       if (!/^[0-9a-f-]{36}$/i.test(blockedId) || blockedId === user.id) return json({ error: "Invalid user" }, 400);
@@ -428,6 +431,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       return json({ blocked: true });
     }
     if (method === "POST" && path === "/v2/mobile/chat/report") {
+      if (await consumeLimit(env, "chat-report-user", user.id, 10, 3600)) return json({ error: "Too many reports" }, 429);
       const body = await readJson(request);
       const targetId = typeof body?.userId === "string" ? body.userId : "";
       const reason = typeof body?.reason === "string" ? body.reason.trim() : "";
