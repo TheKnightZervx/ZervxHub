@@ -493,10 +493,17 @@ export async function handleV2(
       return respond({ valid: false, reason: "game_not_allowed" }, 403, origin);
     }
 
-    await env.DB.prepare(
+    // Atomically bind the license to its first Roblox user. The conditional
+    // UPDATE prevents two different players from claiming an unbound key at once.
+    const binding = await env.DB.prepare(
       `UPDATE keys SET last_used_at = ?, last_roblox_user_id = ?
-       WHERE key_hash = ? AND developer_id = ?`
-    ).bind(now, robloxUserId || null, row.key_hash, game.developer_id).run();
+       WHERE key_hash = ? AND developer_id = ? AND status = 'active'
+         AND (last_roblox_user_id IS NULL OR last_roblox_user_id = ?)`
+    ).bind(now, robloxUserId, row.key_hash, game.developer_id, robloxUserId).run();
+
+    if (binding.meta.changes === 0) {
+      return respond({ valid: false, reason: "roblox_user_mismatch" }, 403, origin);
+    }
 
     // Seamlessly upgrade legacy SHA-256 hash to HMAC-SHA-256 with KEY_PEPPER
     if (row.key_hash === legacyHash && keyHash !== legacyHash) {
