@@ -419,7 +419,7 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
       if (method === "GET") {
         const limit = Math.min(50, Math.max(1, Number(url.searchParams.get("limit") ?? 30) || 30));
         const before = Math.max(0, Number(url.searchParams.get("before") ?? 0) || 0);
-        return json({ conversationId, messages: await messagesFor(env, conversationId, before, limit), mediaAllowed: true });
+        return json({ conversationId, messages: await messagesFor(env, conversationId, before, limit), mediaAllowed: false, callsAllowed: false });
       }
       if (method === "POST") {
         const body = await readJson(request);
