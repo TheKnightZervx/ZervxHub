@@ -186,3 +186,55 @@ test("session refresh rotates token and logout-all revokes active sessions", asy
   assert.equal(logout.status, 200);
   assert.equal((await call("/v2/mobile/account", { token: next.token })).status, 401);
 });
+
+
+test("private groups authorize current members and reject outsiders", async () => {
+  const owner = await signIn("group-owner@example.test", "198.51.100.21");
+  const member = await signIn("group-member@example.test", "198.51.100.22");
+  const outsider = await signIn("group-outsider@example.test", "198.51.100.23");
+  const created = await call("/v2/mobile/chat/groups", {
+    method: "POST", token: owner.token, body: { name: "Build Team", memberUserIds: [member.user.id] }
+  });
+  assert.equal(created.status, 201);
+  const conversationId = (await json(created)).conversationId;
+  const message = await call(`/v2/mobile/chat/conversations/${conversationId}/messages`, {
+    method: "POST", token: owner.token, body: { content: "Group-only update" }
+  });
+  assert.equal(message.status, 201);
+  const visible = await call(`/v2/mobile/chat/conversations/${conversationId}/messages`, { token: member.token });
+  assert.equal((await json(visible)).messages[0].content, "Group-only update");
+  const denied = await call(`/v2/mobile/chat/conversations/${conversationId}/messages`, { token: outsider.token });
+  assert.equal(denied.status, 404);
+});
+
+test("blocking a user revokes access to an existing direct conversation", async () => {
+  const one = await signIn("block-one@example.test", "198.51.100.24");
+  const two = await signIn("block-two@example.test", "198.51.100.25");
+  const created = await call("/v2/mobile/chat/direct", {
+    method: "POST", token: one.token, body: { recipientUserId: two.user.id }
+  });
+  const conversationId = (await json(created)).conversationId;
+  const blocked = await call("/v2/mobile/chat/block", {
+    method: "POST", token: one.token, body: { userId: two.user.id }
+  });
+  assert.equal(blocked.status, 200);
+  const denied = await call(`/v2/mobile/chat/conversations/${conversationId}/messages`, { token: two.token });
+  assert.equal(denied.status, 404);
+});
+
+test("private media remains disabled and subscriptions never invent an active plan", async () => {
+  const account = await signIn("gated-features@example.test", "198.51.100.26");
+  const subscription = await call("/v2/mobile/subscription", { token: account.token });
+  const details = await json(subscription);
+  assert.equal(details.subscription, null);
+  assert.equal(details.checkoutEnabled, false);
+  const conversations = await signIn("media-recipient@example.test", "198.51.100.27");
+  const direct = await call("/v2/mobile/chat/direct", {
+    method: "POST", token: account.token, body: { recipientUserId: conversations.user.id }
+  });
+  const conversationId = (await json(direct)).conversationId;
+  const media = await call(`/v2/mobile/chat/conversations/${conversationId}/messages`, {
+    method: "POST", token: account.token, body: { attachment: { filename: "private.pdf" } }
+  });
+  assert.equal(media.status, 503);
+});
