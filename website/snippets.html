@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#090a0c">
+  <meta name="description" content="A searchable, copy-ready library of developer snippets for JavaScript, Python, Lua, Roblox, HTML, CSS, and Discord.js.">
+  <title>Developer Studio | ZervxHub</title>
+  <link rel="stylesheet" href="styles.css">
+  <script src="site.js" defer></script>
+  <script src="snippets.js" defer></script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="index.html" aria-label="ZervxHub home"><span class="brand-mark" aria-hidden="true">Z</span><span>ZERVXHUB</span></a>
+      <button class="nav-toggle" type="button" aria-controls="primary-nav" aria-expanded="false"><span class="sr-only">Toggle navigation</span><span aria-hidden="true">Menu</span></button>
+      <nav class="primary-nav" id="primary-nav" aria-label="Main navigation">
+        <a href="index.html">Overview</a><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="snippets.html" aria-current="page">Developer Studio</a><a href="support.html">Support</a><a href="dashboard.html">Dashboard</a>
+      </nav>
+      <a class="button button-small button-outline header-action" href="https://github.com/TheKnightZervx/ZervxHub">View project</a>
+    </div>
+  </header>
+
+  <main id="main" class="shell">
+    <section class="page-intro">
+      <p class="eyebrow">Developer Studio · Phase 1</p>
+      <h1>Useful code. Ready when you are.</h1>
+      <p>A searchable starter library for common developer tasks. Browse examples, inspect the code, and copy what you need. Nothing is executed or uploaded.</p>
+    </section>
+
+    <section class="studio-toolbar" aria-label="Snippet filters">
+      <label for="snippet-search">Search snippets<input id="snippet-search" type="search" placeholder="Search by title, language, or keyword" autocomplete="off"></label>
+      <label for="snippet-language">Language<select id="snippet-language"><option value="all">All languages</option><option>JavaScript</option><option>Python</option><option>Lua</option><option>Roblox Lua</option><option>HTML</option><option>CSS</option><option>Discord.js</option></select></label>
+      <p id="snippet-count" class="studio-count" aria-live="polite">Loading snippets…</p>
+    </section>
+
+    <section id="snippet-grid" class="snippet-grid" aria-label="Code snippets">
+      <p class="studio-empty">Loading the snippet library…</p>
+    </section>
+    <p id="copy-status" class="studio-status" role="status" aria-live="polite"></p>
+
+    <section class="notice notice-caution top-gap">
+      <strong>Safe by design</strong>
+      <p>These are reference examples only. The page does not run code, connect to accounts, or send your code anywhere. Review and adapt snippets before using them in a real project.</p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <p>&copy; <span data-year></span> ZervxHub. Independent community project; not affiliated with Roblox Corporation.</p>
+      <nav aria-label="Footer navigation"><a href="pricing.html">Pricing</a><a href="docs.html">Documentation</a><a href="snippets.html">Developer Studio</a><a href="support.html">Support</a><a href="dashboard.html">Dashboard</a><a href="https://github.com/TheKnightZervx/ZervxHub">GitHub</a></nav>
+    </div>
+  </footer>
+</body>
+</html>

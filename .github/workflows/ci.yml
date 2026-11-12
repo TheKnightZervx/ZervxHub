@@ -2,9 +2,9 @@ name: ZervxHub CI
 
 on:
   pull_request:
-    branches: [main, mission3-base]
+    branches: [main, mission3-base, mission3-developer-studio-snippets]
   push:
-    branches: [main, mission3-base, "codex/**"]
+    branches: [main, mission3-base, mission3-developer-studio-snippets, "codex/**", "mission5-*"]
 
 jobs:
   worker:
@@ -46,3 +46,29 @@ jobs:
       - name: Run tests
         working-directory: discord-bot
         run: npm test
+  website:
+    name: Website and Developer Studio checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22.12
+      - name: Check website JavaScript syntax
+        run: |
+          for file in website/*.js; do
+            node --check "$file"
+          done
+      - name: Verify Developer Studio assets
+        run: |
+          test -s website/snippets.html
+          test -s website/snippets.js
+          test -s docs/DEVELOPER_STUDIO.md
+          grep -q 'id="snippet-grid"' website/snippets.html
+          grep -q 'localStorage' website/snippets.js
+          grep -q 'new Worker' website/snippets.js
+          grep -q 'versions' website/snippets.js
+          grep -q 'exportWorkspace' website/snippets.js
+      - name: Ensure code is not evaluated in the page context
+        run: |
+          ! grep -nE 'eval[[:space:]]*\\(|new Function' website/snippets.js
