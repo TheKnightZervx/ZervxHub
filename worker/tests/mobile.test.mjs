@@ -266,3 +266,17 @@ test("private groups accept known member emails without exposing a directory", a
   const memberMessages = await call(`/v2/mobile/chat/conversations/${id}/messages`, { token: member.token });
   assert.equal(memberMessages.status, 200);
 });
+
+
+test("OTP requests fail closed without a mail delivery binding", async () => {
+  const mailer = env.MAILER;
+  env.MAILER = undefined;
+  const before = db.prepare("SELECT COUNT(*) AS count FROM mobile_email_challenges").get().count;
+  const response = await call("/v2/mobile/auth/email/request-code", {
+    method: "POST", body: { email: "no-mailer@example.test" }, ip: "198.51.100.41"
+  });
+  assert.equal(response.status, 503);
+  const afterCount = db.prepare("SELECT COUNT(*) AS count FROM mobile_email_challenges").get().count;
+  assert.equal(afterCount, before);
+  env.MAILER = mailer;
+});
