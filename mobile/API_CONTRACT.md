@@ -94,5 +94,6 @@ Private media/call route placeholders are scoped to an authenticated direct or g
 - `POST /v2/mobile/chat/conversations/:id/voice-messages`
 - `POST /v2/mobile/chat/conversations/:id/calls`
 - `POST /v2/mobile/chat/conversations/:id/signaling`
+- `POST /v2/mobile/chat/conversations/:id/screen-share`
 
 They verify current membership and then return 503 while storage/relay infrastructure remains unconfigured. Equivalent global-chat routes are rejected with 403.
