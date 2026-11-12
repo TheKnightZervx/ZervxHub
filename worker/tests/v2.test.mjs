@@ -86,6 +86,7 @@ class MemoryD1 {
             allowed_universe_ids: key.allowedUniverseIds,
             developer_id: key.developerId,
             key_hash: key.hash || hash1,
+            last_roblox_user_id: key.lastRobloxUserId,
           } : null;
         }
         if (normalized.includes("FROM keys WHERE") && normalized.includes("developer_id IS NULL")) {
@@ -817,4 +818,24 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   });
   assert.equal(legacyValidate.status, 200);
   assert.equal((await json(legacyValidate)).valid, true);
+
+  const legacyDifferentUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345", robloxUserId: MEMBER_2 },
+  });
+  assert.equal(legacyDifferentUser.status, 403);
+  assert.deepEqual(await json(legacyDifferentUser), {
+    valid: false,
+    reason: "roblox_user_mismatch",
+  });
+
+  const legacyOriginalUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345", robloxUserId: MEMBER },
+  });
+  assert.equal(legacyOriginalUser.status, 200);
+  assert.equal((await json(legacyOriginalUser)).valid, true);
+
+  const missingRobloxUser = await api.request("/v1/keys/validate", {
+    body: { key: legacyBody.key, universeId: "12345" },
+  });
+  assert.equal(missingRobloxUser.status, 400);
 });
