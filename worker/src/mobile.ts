@@ -306,10 +306,16 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
 
     if (method === "POST" && path === "/v2/mobile/chat/direct") {
       const body = await readJson(request);
-      const recipient = typeof body?.recipientUserId === "string" ? body.recipientUserId : "";
-      if (!/^[0-9a-f-]{36}$/i.test(recipient) || recipient === user.id) return json({ error: "Invalid recipient" }, 400);
-      const target = await env.DB.prepare("SELECT id FROM mobile_users WHERE id = ? AND status = 'active'").bind(recipient).first<{ id: string }>();
-      if (!target) return json({ error: "User not found" }, 404);
+      const recipientId = typeof body?.recipientUserId === "string" ? body.recipientUserId : "";
+      const recipientEmail = typeof body?.recipientEmail === "string" ? body.recipientEmail.trim().toLowerCase() : "";
+      if ((!/^[0-9a-f-]{36}$/i.test(recipientId) && !validEmail(recipientEmail)) || recipientId === user.id) {
+        return json({ error: "Provide a valid recipient account" }, 400);
+      }
+      const target = recipientId
+        ? await env.DB.prepare("SELECT id FROM mobile_users WHERE id = ? AND status = 'active'").bind(recipientId).first<{ id: string }>()
+        : await env.DB.prepare("SELECT id FROM mobile_users WHERE email = ? AND status = 'active'").bind(recipientEmail).first<{ id: string }>();
+      if (!target || target.id === user.id) return json({ error: "User not found" }, 404);
+      const recipient = target.id;
       if (await isBlocked(env, user.id, recipient)) return json({ error: "This conversation is unavailable" }, 403);
       const pairKey = [user.id, recipient].sort().join(":");
       let conversation = await env.DB.prepare("SELECT id FROM mobile_conversations WHERE pair_key = ?").bind(pairKey).first<{ id: string }>();
@@ -337,15 +343,32 @@ async function handleMobile(request: Request, env: MobileEnv): Promise<Response 
     if (method === "POST" && path === "/v2/mobile/chat/groups") {
       const body = await readJson(request);
       const name = typeof body?.name === "string" ? body.name.trim() : "";
-      const requested = Array.isArray(body?.memberUserIds) ? body.memberUserIds : [];
-      const members = [...new Set([user.id, ...requested.filter((v): v is string => typeof v === "string")])];
-      if (!name || name.length > 80 || members.length < 2 || members.length > 30 ||
-          members.some(id => !/^[0-9a-f-]{36}$/i.test(id))) return json({ error: "Invalid group details" }, 400);
-      const placeholders = members.map(() => "?").join(",");
-      const users = await env.DB.prepare(
-        `SELECT id FROM mobile_users WHERE status = 'active' AND id IN (${placeholders})`
-      ).bind(...members).all<{ id: string }>();
-      if (users.results.length !== members.length) return json({ error: "One or more users are unavailable" }, 400);
+      const requestedIds = Array.isArray(body?.memberUserIds)
+        ? body.memberUserIds.filter((value): value is string => typeof value === "string") : [];
+      const requestedEmails = Array.isArray(body?.memberEmails)
+        ? body.memberEmails.filter((value): value is string => typeof value === "string").map(value => value.trim().toLowerCase()) : [];
+      if (!name || name.length > 80 || requestedIds.length + requestedEmails.length > 29 ||
+          requestedIds.some(id => !/^[0-9a-f-]{36}$/i.test(id)) ||
+          requestedEmails.some(email => !validEmail(email))) return json({ error: "Invalid group details" }, 400);
+      const clauses: string[] = [];
+      const args: string[] = [];
+      if (requestedIds.length) {
+        clauses.push(`id IN (${requestedIds.map(() => "?").join(",")})`);
+        args.push(...requestedIds);
+      }
+      if (requestedEmails.length) {
+        clauses.push(`email IN (${requestedEmails.map(() => "?").join(",")})`);
+        args.push(...requestedEmails);
+      }
+      const users = clauses.length
+        ? await env.DB.prepare(`SELECT id FROM mobile_users WHERE status = 'active' AND (${clauses.join(" OR ")})`)
+            .bind(...args).all<{ id: string }>()
+        : { results: [] as { id: string }[] };
+      const members = [...new Set([user.id, ...users.results.map(row => row.id)])];
+      if (members.length < 2 || members.length > 30 ||
+          users.results.length !== new Set([...requestedIds, ...requestedEmails]).size) {
+        return json({ error: "One or more users are unavailable" }, 400);
+      }
       const id = crypto.randomUUID();
       const now = nowSeconds();
       const statements = [
