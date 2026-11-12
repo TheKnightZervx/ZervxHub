@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { randomUUID, webcrypto } from "node:crypto";
+import { createHmac, randomUUID, webcrypto } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -40,6 +40,8 @@ class MemoryD1 {
   apiKeys = new Map();
   games = new Map();
   keys = new Map();
+  gameServerKeys = new Map();
+  validationRequests = new Map();
   integrations = new Map();
 
   prepare(sql) {
@@ -79,6 +81,15 @@ class MemoryD1 {
           const developer = db.developers.get(game.developerId);
           return developer ? { developer_id: game.developerId, developer_status: developer.status } : null;
         }
+        if (normalized.startsWith("SELECT k.developer_id AS developerId")) {
+          const [keyHash, universeId] = args;
+          const key = db.gameServerKeys.get(keyHash);
+          const game = [...db.games.values()].find(row =>
+            row.universeId === universeId && row.developerId === key?.developerId && row.status === "approved");
+          const developer = key && db.developers.get(key.developerId);
+          return key && key.universeId === universeId && !key.revokedAt && game && developer
+            ? { developerId: key.developerId, developerStatus: developer.status } : null;
+        }
         if (normalized.startsWith("SELECT developer_id FROM games")) {
           const [universeId] = args;
           const game = [...db.games.values()].find(row => row.universeId === universeId && row.status === "approved");
@@ -117,6 +128,21 @@ class MemoryD1 {
         return null;
       },
       async all() {
+        if (normalized.startsWith("SELECT g.id, g.universe_id AS universeId")) {
+          const [developerId] = args;
+          return { results: [...db.games.values()]
+            .filter(game => game.developerId === developerId)
+            .map(({ id, universeId, name, status, createdAt, verifiedAt }) => ({
+              id,
+              universeId,
+              name,
+              status,
+              createdAt,
+              verifiedAt,
+              serverKeyConfigured: [...db.gameServerKeys.values()]
+                .some(key => key.universeId === universeId && !key.revokedAt) ? 1 : 0,
+            })) };
+        }
         if (normalized.startsWith("SELECT universe_id AS universeId, name, status, verified_at AS verifiedAt FROM games")) {
           const [developerId] = args;
           return { results: [...db.games.values()]
@@ -132,6 +158,23 @@ class MemoryD1 {
         return { results: [] };
       },
       async run() {
+        if (normalized.startsWith("DELETE FROM game_validation_requests")) {
+          const [now] = args;
+          let changes = 0;
+          for (const [requestId, request] of db.validationRequests) {
+            if (request.expiresAt <= now) {
+              db.validationRequests.delete(requestId);
+              changes++;
+            }
+          }
+          return { meta: { changes } };
+        }
+        if (normalized.startsWith("INSERT OR IGNORE INTO game_validation_requests")) {
+          const [requestId, universeId, expiresAt] = args;
+          if (db.validationRequests.has(requestId)) return { meta: { changes: 0 } };
+          db.validationRequests.set(requestId, { universeId, expiresAt });
+          return { meta: { changes: 1 } };
+        }
         if (normalized.startsWith("INSERT INTO developers")) {
           const [id, discordUserId, displayName, createdAt] = args;
           if ([...db.developers.values()].some(row => row.discordUserId === discordUserId)) throw new Error("duplicate developer");
@@ -194,6 +237,22 @@ class MemoryD1 {
           const developer = db.developers.get(id);
           if (!developer) return { meta: { changes: 0 } };
           developer.status = status;
+          return { meta: { changes: 1 } };
+        }
+        if (normalized.startsWith("UPDATE game_server_keys SET revoked_at")) {
+          const [revokedAt, developerId, universeId] = args;
+          let changes = 0;
+          for (const key of db.gameServerKeys.values()) {
+            if (key.developerId === developerId && key.universeId === universeId && !key.revokedAt) {
+              key.revokedAt = revokedAt;
+              changes++;
+            }
+          }
+          return { meta: { changes } };
+        }
+        if (normalized.startsWith("INSERT INTO game_server_keys")) {
+          const [hash, universeId, developerId, createdAt] = args;
+          db.gameServerKeys.set(hash, { hash, universeId, developerId, createdAt, revokedAt: null });
           return { meta: { changes: 1 } };
         }
         if (normalized.startsWith("UPDATE games SET status")) {
@@ -338,6 +397,7 @@ const MEMBER_2 = "444444444444444";
 function createApi() {
   const DB = new MemoryD1();
   const env = { DB, ADMIN_TOKEN, BOT_API_TOKEN, KEY_PEPPER, ALLOWED_UNIVERSE_IDS: "12345,67890" };
+  const serverKeys = new Map();
   async function request(path, { method = "POST", body, headers = {} } = {}) {
     const req = new Request(`https://worker.test${path}`, {
       method,
@@ -346,7 +406,7 @@ function createApi() {
     });
     return worker.fetch(req, env);
   }
-  return { DB, request };
+  return { DB, request, serverKeys };
 }
 
 async function json(response) { return response.json(); }
@@ -360,6 +420,13 @@ function testCase(name, fn) {
 const adminHeaders = { "x-admin-token": ADMIN_TOKEN };
 const botHeaders = { "x-bot-token": BOT_API_TOKEN };
 const devHeaders = key => ({ "x-developer-key": key });
+const validationBody = (key, universeId, robloxUserId) => ({
+  key,
+  universeId,
+  robloxUserId,
+  requestId: randomUUID(),
+  timestamp: Math.floor(Date.now() / 1000),
+});
 
 async function createDeveloper(api, discordUserId, displayName) {
   const response = await api.request("/v2/admin/developers", {
@@ -378,6 +445,16 @@ async function registerApprovedGame(api, developerKey, universeId, name) {
     body: { universeId, status: "approved" }, headers: adminHeaders,
   });
   assert.equal(approved.status, 200);
+  const game = [...api.DB.games.values()].find(row => row.universeId === universeId);
+  const serverKey = `zvh_game_test_${universeId}_${api.serverKeys.size}`;
+  const keyHash = createHmac("sha256", KEY_PEPPER).update(serverKey).digest("hex");
+  api.DB.gameServerKeys.set(keyHash, {
+    hash: keyHash,
+    universeId,
+    developerId: game.developerId,
+    revokedAt: null,
+  });
+  api.serverKeys.set(universeId, serverKey);
 }
 
 async function issueForDeveloper(api, developerKey, discordUserId, universeId) {
@@ -386,6 +463,9 @@ async function issueForDeveloper(api, developerKey, discordUserId, universeId) {
   });
   return { response, data: await json(response) };
 }
+const gameServerHeaders = (api, universeId) => ({
+  "x-game-server-key": api.serverKeys.get(universeId) ?? "",
+});
 
 testCase("admin creates developers; developer API keys are hashed and admin routes stay admin-only", async () => {
   const api = createApi();
@@ -482,7 +562,8 @@ testCase("licenses cannot be issued, validated, or revoked across developer boun
   assert.equal(crossIssue.response.status, 403);
 
   const valid = await api.request("/v2/keys/validate", {
-    body: { key: issuedOne.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issuedOne.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(valid.status, 200);
   const validBody = await json(valid);
@@ -491,7 +572,8 @@ testCase("licenses cannot be issued, validated, or revoked across developer boun
 
   for (const [key, universeId] of [[issuedOne.data.key, "67890"], [issuedTwo.data.key, "12345"]]) {
     const response = await api.request("/v2/keys/validate", {
-      body: { key, universeId, robloxUserId: MEMBER },
+      body: validationBody(key, universeId, MEMBER),
+      headers: gameServerHeaders(api, universeId),
     });
     assert.equal(response.status, 401);
     const body = await json(response);
@@ -509,7 +591,8 @@ testCase("licenses cannot be issued, validated, or revoked across developer boun
   });
   assert.deepEqual(await json(ownRevoke), { revoked: true });
   const validateRevoked = await api.request("/v2/keys/validate", {
-    body: { key: issuedOne.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issuedOne.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(validateRevoked.status, 401);
 });
@@ -565,7 +648,7 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
 
   for (const robloxUserId of ["not-a-user", "1".repeat(25), 12345]) {
     const invalidUserId = await api.request("/v1/keys/validate", {
-      body: { key: "x".repeat(20), universeId: "12345", robloxUserId },
+      body: validationBody("x".repeat(20), "12345", robloxUserId),
     });
     assert.equal(invalidUserId.status, 400);
     assert.deepEqual(await json(invalidUserId), { valid: false, reason: "invalid_request" });
@@ -580,7 +663,8 @@ testCase("malformed V2 payloads are rejected and V1 cannot bypass V2 game approv
   const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
   assert.equal(issued.response.status, 201);
   const v1 = await api.request("/v1/keys/validate", {
-    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issued.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(v1.status, 401);
 });
@@ -614,7 +698,8 @@ testCase("expired licenses fail validation", async () => {
   const row = [...api.DB.keys.values()].find(key => key.discordUserId === MEMBER);
   row.expiresAt = Math.floor(Date.now() / 1000) - 1;
   const response = await api.request("/v2/keys/validate", {
-    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issued.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(response.status, 401);
   assert.equal((await json(response)).reason, "expired");
@@ -623,19 +708,27 @@ testCase("expired licenses fail validation", async () => {
 
 testCase("public license validation is throttled per caller", async () => {
   const api = createApi();
+  const developer = await createDeveloper(api, GUILD_1, "One");
+  await registerApprovedGame(api, developer.apiKey, "12345", "Game");
   let last;
   for (let index = 0; index < 61; index++) {
     last = await api.request("/v2/keys/validate", {
-      body: { key: "ZERVX-0123456789012345678901234567890123456789", universeId: "12345", robloxUserId: MEMBER },
-      headers: { "cf-connecting-ip": "198.51.100.10" },
+      body: validationBody("ZERVX-0123456789012345678901234567890123456789", "12345", MEMBER),
+      headers: {
+        ...gameServerHeaders(api, "12345"),
+        "cf-connecting-ip": "198.51.100.10",
+      },
     });
   }
   assert.equal(last.status, 429);
   const otherPlayer = await api.request("/v2/keys/validate", {
-    body: { key: "ZERVX-0123456789012345678901234567890123456789", universeId: "12345", robloxUserId: MEMBER_2 },
-    headers: { "cf-connecting-ip": "198.51.100.10" },
+    body: validationBody("ZERVX-0123456789012345678901234567890123456789", "12345", MEMBER_2),
+    headers: {
+      ...gameServerHeaders(api, "12345"),
+      "cf-connecting-ip": "198.51.100.10",
+    },
   });
-  assert.equal(otherPlayer.status, 403);
+  assert.equal(otherPlayer.status, 401);
 });
 
 testCase("invalid, missing, and revoked developer credentials are rejected", async () => {
@@ -674,7 +767,7 @@ testCase("pending and rejected games cannot issue or validate keys", async () =>
   const pendingIssue = await issueForDeveloper(api, developer.apiKey, MEMBER, "55555");
   assert.equal(pendingIssue.response.status, 403);
   const pendingValidate = await api.request("/v2/keys/validate", {
-    body: { key: "ZERVX-0123456789012345678901234567890123456789", universeId: "55555", robloxUserId: MEMBER },
+    body: validationBody("ZERVX-0123456789012345678901234567890123456789", "55555", MEMBER),
   });
   assert.equal(pendingValidate.status, 403);
   assert.equal((await json(pendingValidate)).reason, "game_not_allowed");
@@ -692,7 +785,8 @@ testCase("pending and rejected games cannot issue or validate keys", async () =>
   const issued = await issueForDeveloper(api, developer.apiKey, MEMBER, "12345");
   assert.equal(issued.response.status, 201);
   const validated = await api.request("/v2/keys/validate", {
-    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issued.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(validated.status, 200);
   assert.equal((await json(validated)).valid, true);
@@ -708,7 +802,8 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   });
   assert.deepEqual(await json(revoke), { revoked: true });
   const validated = await api.request("/v2/keys/validate", {
-    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issued.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(validated.status, 401);
   assert.equal((await json(validated)).reason, "invalid_or_revoked");
@@ -721,7 +816,8 @@ testCase("revoked licenses fail validation and suspended developers are blocked"
   });
   assert.equal(suspended.status, 200);
   const afterSuspend = await api.request("/v2/keys/validate", {
-    body: { key: second.data.key, universeId: "12345", robloxUserId: MEMBER_2 },
+    body: validationBody(second.data.key, "12345", MEMBER_2),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(afterSuspend.status, 403);
   assert.equal((await json(afterSuspend)).reason, "developer_suspended");
@@ -761,7 +857,8 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   assert.deepEqual(await json(v1Revoke), { revoked: false });
 
   const stillValid = await api.request("/v2/keys/validate", {
-    body: { key: issued.data.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(issued.data.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(stillValid.status, 200);
 
@@ -772,7 +869,8 @@ testCase("legacy v1 admin actions cannot revoke or validate another developer's 
   assert.equal(legacy.status, 201);
   const legacyBody = await json(legacy);
   const legacyValidate = await api.request("/v1/keys/validate", {
-    body: { key: legacyBody.key, universeId: "12345", robloxUserId: MEMBER },
+    body: validationBody(legacyBody.key, "12345", MEMBER),
+    headers: gameServerHeaders(api, "12345"),
   });
   assert.equal(legacyValidate.status, 200);
   assert.equal((await json(legacyValidate)).valid, true);

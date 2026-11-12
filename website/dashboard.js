@@ -118,14 +118,46 @@ const renderGames = (games) => {
   gameSelect.replaceChildren(new Option("Select a game", ""));
   for (const game of games) {
     const row = document.createElement("tr");
-    row.append(cell(game.name), cell(game.universeId), cell(game.status));
+    const serverKeyStatus = game.status !== "approved"
+      ? "Available after approval"
+      : game.serverKeyConfigured
+        ? "Configured"
+        : "Not configured";
+    const actions = document.createElement("td");
+    if (game.status === "approved") {
+      const rotate = document.createElement("button");
+      rotate.className = "button button-outline";
+      rotate.type = "button";
+      rotate.dataset.gameServerKeyAction = "rotate";
+      rotate.dataset.universeId = game.universeId;
+      rotate.textContent = game.serverKeyConfigured ? "Rotate key" : "Create key";
+      actions.append(rotate);
+      if (game.serverKeyConfigured) {
+        const revoke = document.createElement("button");
+        revoke.className = "button button-outline";
+        revoke.type = "button";
+        revoke.dataset.gameServerKeyAction = "revoke";
+        revoke.dataset.universeId = game.universeId;
+        revoke.textContent = "Revoke";
+        actions.append(revoke);
+      }
+    } else {
+      actions.append(document.createTextNode("Approval required"));
+    }
+    row.append(
+      cell(game.name),
+      cell(game.universeId),
+      cell(game.status),
+      cell(serverKeyStatus),
+      actions
+    );
     list.append(row);
     if (game.status === "approved") gameSelect.add(new Option(`${game.name} (${game.universeId})`, game.universeId));
   }
   if (!games.length) {
     const row = document.createElement("tr");
     const empty = cell("No games registered.");
-    empty.colSpan = 3;
+    empty.colSpan = 5;
     row.append(empty);
     list.append(row);
   }
@@ -317,6 +349,43 @@ document.querySelector("#game-form").addEventListener("submit", async (event) =>
     await refresh();
   } catch (error) {
     showStatus(error.message, true);
+  }
+});
+
+document.querySelector("#game-list").addEventListener("click", async (event) => {
+  const button = event.target.closest("button[data-game-server-key-action]");
+  if (!button) return;
+  const action = button.dataset.gameServerKeyAction;
+  const universeId = button.dataset.universeId;
+  if (
+    action === "revoke" &&
+    !window.confirm("Revoking this key immediately stops validation for this game. Continue?")
+  ) return;
+  if (
+    action === "rotate" &&
+    button.textContent === "Rotate key" &&
+    !window.confirm("Rotating this key immediately invalidates the current game server key. Continue?")
+  ) return;
+  button.disabled = true;
+  try {
+    const data = await request(
+      `/v2/dashboard/games/${encodeURIComponent(universeId)}/server-key/${action}`,
+      { method: "POST", body: "{}" }
+    );
+    if (action === "rotate") {
+      showOneTimeSecret(
+        document.querySelector("#game-server-key-result"),
+        "New game server key",
+        data.serverKey
+      );
+      showStatus("Game server key rotated. Update ServerStorage before the next validation.");
+    } else {
+      showStatus(data.revoked ? "Game server key revoked." : "No active game server key to revoke.");
+    }
+    await refresh();
+  } catch (error) {
+    showStatus(error.message, true);
+    button.disabled = false;
   }
 });
 

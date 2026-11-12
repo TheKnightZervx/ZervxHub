@@ -1,5 +1,9 @@
 
-import { handleV2 } from "./v2";
+import {
+  consumeGameValidationRequest,
+  getGameServerKeyOwner,
+  handleV2,
+} from "./v2";
 import {
   isRateLimited,
   resetRateLimits,
@@ -45,7 +49,7 @@ const json = (data: Json, status = 200, origin = "*") =>
       "cache-control": "no-store",
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-bot-token",
+      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token",
       "vary": "origin",
     },
   });
@@ -74,7 +78,7 @@ export default {
         headers: {
           "access-control-allow-origin": origin,
           "access-control-allow-methods": "GET, POST, OPTIONS",
-          "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-bot-token",
+          "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token",
           ...(env.CORS_ORIGIN && origin !== "null"
             ? { "access-control-allow-credentials": "true" }
             : {}),
@@ -139,6 +143,9 @@ export default {
         typeof body.universeId === "string" ? body.universeId.trim() : "";
       const robloxUserId =
         typeof body.robloxUserId === "string" ? body.robloxUserId.trim() : "";
+      const requestId = typeof body.requestId === "string" ? body.requestId.trim().toLowerCase() : "";
+      const requestTimestamp = body.timestamp;
+      const now = Math.floor(Date.now() / 1000);
 
       const invalidRobloxUserId =
         typeof body.robloxUserId !== "string" ||
@@ -148,7 +155,11 @@ export default {
         key.length < 20 ||
         key.length > 100 ||
         !/^[0-9]+$/.test(universeId) ||
-        invalidRobloxUserId
+        invalidRobloxUserId ||
+        !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(requestId) ||
+        typeof requestTimestamp !== "number" ||
+        !Number.isInteger(requestTimestamp) ||
+        Math.abs(now - requestTimestamp) > 60
       ) {
         return json({ valid: false, reason: "invalid_request" }, 400, origin);
       }
@@ -157,6 +168,17 @@ export default {
 
       if (!globalAllowlist.length || !globalAllowlist.includes(universeId)) {
         return json({ valid: false, reason: "game_not_allowed" }, 403, origin);
+      }
+
+      const serverDeveloper = await getGameServerKeyOwner(request, env, universeId);
+      if (!serverDeveloper) {
+        return json({ valid: false, reason: "server_credential_invalid" }, 401, origin);
+      }
+      if (serverDeveloper.developerStatus !== "active") {
+        return json({ valid: false, reason: "developer_suspended" }, 403, origin);
+      }
+      if (!await consumeGameValidationRequest(env, requestId, universeId, now)) {
+        return json({ valid: false, reason: "request_replayed" }, 409, origin);
       }
 
       const { hmac: keyHash, legacy: legacyHash } = await credentialCandidateHashes(
@@ -179,8 +201,6 @@ export default {
       if (!row || row.status !== "active") {
         return json({ valid: false, reason: "invalid_or_revoked" }, 401, origin);
       }
-
-      const now = Math.floor(Date.now() / 1000);
 
       if (row.expires_at <= now) {
         await env.DB.prepare(

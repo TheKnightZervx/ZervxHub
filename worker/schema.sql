@@ -30,6 +30,31 @@ CREATE TABLE IF NOT EXISTS games (
   verified_at INTEGER
 );
 
+CREATE UNIQUE INDEX IF NOT EXISTS idx_games_developer_universe
+  ON games (developer_id, universe_id);
+
+CREATE TABLE IF NOT EXISTS game_server_keys (
+  key_hash TEXT PRIMARY KEY,
+  universe_id TEXT NOT NULL,
+  developer_id TEXT NOT NULL,
+  created_at INTEGER NOT NULL,
+  revoked_at INTEGER,
+  FOREIGN KEY (developer_id, universe_id)
+    REFERENCES games (developer_id, universe_id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_game_server_keys_developer
+  ON game_server_keys (developer_id, universe_id);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_game_server_keys_active_universe
+  ON game_server_keys (universe_id) WHERE revoked_at IS NULL;
+
+CREATE TABLE IF NOT EXISTS game_validation_requests (
+  request_id TEXT PRIMARY KEY,
+  universe_id TEXT NOT NULL REFERENCES games(universe_id) ON DELETE CASCADE,
+  expires_at INTEGER NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_game_validation_requests_expiry
+  ON game_validation_requests (expires_at);
+
 CREATE TABLE IF NOT EXISTS discord_integrations (
   guild_id TEXT PRIMARY KEY,
   developer_id TEXT NOT NULL REFERENCES developers(id),

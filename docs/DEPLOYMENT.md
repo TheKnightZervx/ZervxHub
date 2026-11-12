@@ -6,7 +6,7 @@
 2. Create a D1 database: `npx wrangler d1 create zervxhub-db`.
 3. Put the returned database ID in `worker/wrangler.toml`. The Worker serves the `website/` directory as same-origin static assets.
 4. Review the pending SQL migrations, then apply them to the remote database with `npx wrangler d1 migrations apply zervxhub-db --remote` from `worker/`. The `db:remote` package script intentionally exits without applying changes; it is a safety guard, not the migration command.
-   The account-binding migration preserves each last recorded Roblox account; never-used licenses bind on their next successful validation.
+   The account-binding migration preserves each last recorded Roblox account; never-used licenses bind on their next successful validation. Migration `0005` adds per-game server credentials and `0006` adds short-lived validation replay protection.
 5. Set `CORS_ORIGIN` in Worker Variables to the exact HTTPS origin serving the Worker and dashboard, with no trailing slash.
 6. To enable developer sign-in, create a Discord OAuth2 application and set its redirect URI to `https://YOUR-WORKER/v2/auth/discord/callback`. Configure:
    - `DISCORD_OAUTH_CLIENT_ID` in Worker Variables.
@@ -37,16 +37,9 @@ The bot needs Manage Server permission for `/revoke-key`. Keep both tokens priva
 
 ## Roblox integration
 
-For an experience you own or are authorized to develop:
+For an experience you own or are authorized to develop, register and obtain administrator approval for its Universe ID. Copy `roblox/ZervxHubKeyServer.server.lua` into `ServerScriptService`, set its `API_BASE` to your Worker URL, and enable HTTP Requests. In the dashboard, create a game server key for that approved game and store it as a `StringValue` named `ZervxHubGameServerKey` in `ServerStorage`. Never place it in `ReplicatedStorage` or a client script. Copy `roblox/ZervxHubKeyPrompt.client.lua` into `StarterPlayer/StarterPlayerScripts`.
 
-1. Disable the old `ZervxHub_v1_3_KeyAuth.server.lua` validator so it does not compete for the same RemoteFunction.
-2. Copy `roblox/ZervxHubKeyServer.server.lua` into `ServerScriptService`.
-3. Replace `https://YOUR-WORKER.workers.dev` in that server script with your deployed Worker URL.
-4. Enable HTTP Requests in Roblox Studio's security settings.
-5. Copy `roblox/ZervxHubKeyPrompt.client.lua` into `StarterPlayer/StarterPlayerScripts`.
-6. Gate protected server-side features on the player's `ZervxHubAuthorized` attribute. Never trust a client-only UI to grant access.
-
-The API validates the current experience's Universe ID (`game.GameId`) against the allowlist. The client prompt only collects the key; the server performs the request and makes the authorization decision.
+The server validates `game.GameId` and `player.UserId` with the Worker using the per-game server key and a fresh request ID/timestamp. Rotating that key revokes the previous one immediately; update the `ServerStorage` value after rotating. Gate protected server-side features on the player's `ZervxHubAuthorized` attribute. Never trust a client-only UI to grant access.
 
 ## API smoke tests
 
@@ -56,7 +49,7 @@ Health check:
 curl https://YOUR-WORKER.workers.dev/v1/health
 ```
 
-The Discord bot calls `POST /v2/discord/games`, `POST /v2/discord/keys/issue`, and `POST /v2/discord/keys/revoke` with the private `x-bot-token` header. It does not use the Worker admin token. The Roblox server calls `POST /v2/keys/validate` without an admin or developer secret. Validation expects `key`, `universeId`, and `robloxUserId` JSON fields.
+The Discord bot calls `POST /v2/discord/games`, `POST /v2/discord/keys/issue`, and `POST /v2/discord/keys/revoke` with the private `x-bot-token` header. It does not use the Worker admin token. The Roblox server calls `POST /v2/keys/validate` with the per-game `x-game-server-key` header and `key`, `universeId`, and `robloxUserId` JSON fields. The Worker stores only a peppered hash of each game server key.
 
 ## Before public launch
 

@@ -18,8 +18,8 @@ ZervxHub is a development codebase, not a hosted commercial service. The develop
 - Raw license and developer API keys are returned once and never stored in plaintext.
 - Dashboard sessions are opaque, time-limited, HttpOnly cookies; only a peppered HMAC is stored in D1.
 - Developer/game/license queries are tenant-scoped; games must be approved before licenses can be issued.
-- Dashboard write routes require a matching configured browser origin; public license validation has no developer credential.
-- Authorization is decided by a trusted server/backend, never a LocalScript.
+- Dashboard write routes require a matching configured browser origin; license validation requires a game-scoped server credential.
+- Roblox identity is derived by the server script and the Worker rejects stale or replayed validation requests; authorization is never decided by a LocalScript.
 - Validation fails closed when no Universe IDs are configured.
 - Never commit secrets, tokens, or `.env` files.
 

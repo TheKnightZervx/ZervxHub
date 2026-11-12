@@ -95,9 +95,11 @@
           </section>
           <section class="dashboard-card">
             <h3>Your registered games</h3>
+            <p>Game server keys are scoped to one approved Universe ID, shown once, and stored as a peppered hash. Rotation revokes the previous key immediately.</p>
             <div class="table-wrap">
-              <table><thead><tr><th>Game</th><th>Universe</th><th>Status</th></tr></thead><tbody id="game-list"></tbody></table>
+              <table><thead><tr><th>Game</th><th>Universe</th><th>Status</th><th>Server validation</th><th>Actions</th></tr></thead><tbody id="game-list"></tbody></table>
             </div>
+            <p class="one-time-secret" id="game-server-key-result" hidden></p>
           </section>
         </div>
       </section>

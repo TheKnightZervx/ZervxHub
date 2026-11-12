@@ -6,6 +6,7 @@ import {
   credentialCandidateHashes,
   timingSafeEqual,
   makeApiKey,
+  makeGameServerKey,
   makeLicenseKey,
 } from "./crypto";
 import { PLAN_CATALOG, type BillingPeriod, type SubscriptionPlan } from "./subscriptions";
@@ -32,6 +33,8 @@ const SESSION_COOKIE = "zvh_session";
 const OAUTH_STATE_COOKIE = "zvh_oauth_state";
 const SESSION_TTL_SECONDS = 7 * 24 * 60 * 60;
 const MAX_LICENSE_LIFETIME_HOURS = 24 * 365;
+const MAX_VALIDATION_CLOCK_SKEW_SECONDS = 60;
+const VALIDATION_REQUEST_TTL_SECONDS = 120;
 const respond = (data: Json, status = 200, origin = "*") =>
   new Response(JSON.stringify(data), {
     status,
@@ -40,7 +43,7 @@ const respond = (data: Json, status = 200, origin = "*") =>
       "cache-control": "no-store",
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-bot-token",
+      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token",
       ...(origin !== "*" && origin !== "null"
         ? { "access-control-allow-credentials": "true" }
         : {}),
@@ -99,6 +102,45 @@ async function getDeveloperId(request: Request, env: V2Env) {
   }
 
   return row.id;
+}
+
+export async function getGameServerKeyOwner(
+  request: Request,
+  env: V2Env,
+  universeId: string
+) {
+  const supplied = request.headers.get("x-game-server-key") ?? "";
+  if (!supplied || supplied.length > 200 || !env.KEY_PEPPER) return null;
+
+  const keyHash = await hashCredential(supplied, env.KEY_PEPPER);
+  const row = await env.DB.prepare(
+    `SELECT k.developer_id AS developerId, d.status AS developerStatus
+     FROM game_server_keys k
+     JOIN games g ON g.universe_id = k.universe_id AND g.developer_id = k.developer_id
+     JOIN developers d ON d.id = k.developer_id
+     WHERE k.key_hash = ? AND k.universe_id = ? AND k.revoked_at IS NULL
+       AND g.status = 'approved'`
+  ).bind(keyHash, universeId).first<{ developerId: string; developerStatus: string }>();
+
+  return row ?? null;
+}
+
+export async function consumeGameValidationRequest(
+  env: V2Env,
+  requestId: string,
+  universeId: string,
+  now: number
+) {
+  const results = await env.DB.batch([
+    env.DB.prepare(
+      "DELETE FROM game_validation_requests WHERE expires_at <= ?"
+    ).bind(now),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO game_validation_requests (request_id, universe_id, expires_at)
+       VALUES (?, ?, ?)`
+    ).bind(requestId, universeId, now + VALIDATION_REQUEST_TTL_SECONDS),
+  ]);
+  return results[1]?.meta.changes === 1;
 }
 
 const validDiscordId = (value: string) => /^[0-9]{15,22}$/.test(value);
@@ -455,9 +497,13 @@ export async function handleV2(
 
     if (url.pathname === "/v2/dashboard/games") {
       const games = await env.DB.prepare(
-        `SELECT id, universe_id AS universeId, name, status,
-           created_at AS createdAt, verified_at AS verifiedAt
-         FROM games WHERE developer_id = ? ORDER BY created_at DESC LIMIT 100`
+        `SELECT g.id, g.universe_id AS universeId, g.name, g.status,
+           g.created_at AS createdAt, g.verified_at AS verifiedAt,
+           CASE WHEN k.key_hash IS NULL THEN 0 ELSE 1 END AS serverKeyConfigured
+         FROM games g
+         LEFT JOIN game_server_keys k
+           ON k.universe_id = g.universe_id AND k.revoked_at IS NULL
+         WHERE g.developer_id = ? ORDER BY g.created_at DESC LIMIT 100`
       ).bind(developerId).all<{
         id: string;
         universeId: string;
@@ -465,6 +511,7 @@ export async function handleV2(
         status: string;
         createdAt: number;
         verifiedAt: number | null;
+        serverKeyConfigured: number;
       }>();
       return respond({ games: games.results }, 200, origin);
     }
@@ -654,6 +701,47 @@ export async function handleV2(
         registered: true,
         status: "pending",
         message: "Your game must be approved before it can validate keys.",
+      }, 201, origin);
+    }
+
+    const gameServerKeyMatch = url.pathname.match(
+      /^\/v2\/dashboard\/games\/([0-9]{1,22})\/server-key\/(rotate|revoke)$/
+    );
+    if (gameServerKeyMatch) {
+      if (isRateLimited(request, "dashboard-game-server-key", 5, 60_000, developerId)) {
+        return respond({ error: "Too many requests" }, 429, origin);
+      }
+      const [, universeId, action] = gameServerKeyMatch;
+      const game = await env.DB.prepare(
+        "SELECT id FROM games WHERE developer_id = ? AND universe_id = ? AND status = 'approved'"
+      ).bind(developerId, universeId).first<{ id: string }>();
+      if (!game) return respond({ error: "Approved game not found" }, 404, origin);
+
+      const now = Math.floor(Date.now() / 1000);
+      if (action === "revoke") {
+        const result = await env.DB.prepare(
+          `UPDATE game_server_keys SET revoked_at = ?
+           WHERE developer_id = ? AND universe_id = ? AND revoked_at IS NULL`
+        ).bind(now, developerId, universeId).run();
+        return respond({ revoked: result.meta.changes > 0 }, 200, origin);
+      }
+
+      const serverKey = makeGameServerKey();
+      const keyHash = await hashCredential(serverKey, env.KEY_PEPPER);
+      await env.DB.batch([
+        env.DB.prepare(
+          `UPDATE game_server_keys SET revoked_at = ?
+           WHERE developer_id = ? AND universe_id = ? AND revoked_at IS NULL`
+        ).bind(now, developerId, universeId),
+        env.DB.prepare(
+          `INSERT INTO game_server_keys (key_hash, universe_id, developer_id, created_at)
+           VALUES (?, ?, ?, ?)`
+        ).bind(keyHash, universeId, developerId, now),
+      ]);
+      return respond({
+        rotated: true,
+        serverKey,
+        warning: "Save this game server key in server-only storage. It cannot be displayed again.",
       }, 201, origin);
     }
 
@@ -1041,25 +1129,31 @@ export async function handleV2(
     return respond({ reviewed: true, universeId, status }, 200, origin);
   }
 
-  // PUBLIC: validate a key without a developer credential.
-  // Roblox game servers share egress addresses, so the tight limit is per
-  // player and a higher ceiling still applies to the calling address.
+  // Roblox server scripts authenticate with a per-game credential; clients
+  // cannot validate by supplying an arbitrary Roblox user ID directly.
   if (url.pathname === "/v2/keys/validate") {
     const key = typeof data.key === "string" ? data.key.trim().toUpperCase() : "";
     const universeId =
       typeof data.universeId === "string" ? data.universeId.trim() : "";
     const robloxUserId =
       typeof data.robloxUserId === "string" ? data.robloxUserId.trim() : "";
-    const playerKey = /^\d{1,24}$/.test(robloxUserId) ? robloxUserId : "invalid";
-
-    if (
-      isRateLimited(request, "license-validation-ip", 600) ||
-      isRateLimited(request, "license-validation", 60, 60_000, playerKey)
-    ) {
+    const requestId = typeof data.requestId === "string" ? data.requestId.trim().toLowerCase() : "";
+    const requestTimestamp = data.timestamp;
+    const now = Math.floor(Date.now() / 1000);
+    if (isRateLimited(request, "license-validation-ip", 600)) {
       return respond({ valid: false, reason: "rate_limited" }, 429, origin);
     }
 
-    if (key.length < 20 || key.length > 100 || !validUniverseId(universeId) || !/^\d{1,24}$/.test(robloxUserId)) {
+    if (
+      key.length < 20 ||
+      key.length > 100 ||
+      !validUniverseId(universeId) ||
+      !/^\d{1,24}$/.test(robloxUserId) ||
+      !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(requestId) ||
+      typeof requestTimestamp !== "number" ||
+      !Number.isInteger(requestTimestamp) ||
+      Math.abs(now - requestTimestamp) > MAX_VALIDATION_CLOCK_SKEW_SECONDS
+    ) {
       return respond({ valid: false, reason: "invalid_request" }, 400, origin);
     }
 
@@ -1073,10 +1167,29 @@ export async function handleV2(
     if (!game) {
       return respond({ valid: false, reason: "game_not_allowed" }, 403, origin);
     }
-    if (game.developer_status !== "active") {
+    const serverDeveloper = await getGameServerKeyOwner(request, env, universeId);
+    if (!serverDeveloper || serverDeveloper.developerId !== game.developer_id) {
+      if (isRateLimited(request, "license-validation-auth-failure", 30)) {
+        return respond({ valid: false, reason: "rate_limited" }, 429, origin);
+      }
+      return respond({ valid: false, reason: "server_credential_invalid" }, 401, origin);
+    }
+    if (serverDeveloper.developerStatus !== "active" || game.developer_status !== "active") {
       return respond({ valid: false, reason: "developer_suspended" }, 403, origin);
     }
-
+    if (!await consumeGameValidationRequest(env, requestId, universeId, now)) {
+      return respond({ valid: false, reason: "request_replayed" }, 409, origin);
+    }
+    const playerKey = /^\d{1,24}$/.test(robloxUserId) ? robloxUserId : "invalid";
+    if (isRateLimited(
+      request,
+      "license-validation",
+      60,
+      60_000,
+      `${serverDeveloper.developerId}:${universeId}:${playerKey}`
+    )) {
+      return respond({ valid: false, reason: "rate_limited" }, 429, origin);
+    }
     const { hmac: keyHash, legacy: legacyHash } = await credentialCandidateHashes(
       key,
       env.KEY_PEPPER
@@ -1094,8 +1207,6 @@ export async function handleV2(
       public_id: string;
       bound_roblox_user_id: string | null;
     }>();
-
-    const now = Math.floor(Date.now() / 1000);
 
     if (!row || row.developer_id !== game.developer_id || row.status === "revoked") {
       return respond({ valid: false, reason: "invalid_or_revoked" }, 401, origin);

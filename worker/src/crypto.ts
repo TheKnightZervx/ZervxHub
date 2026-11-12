@@ -59,6 +59,10 @@ export function makeApiKey(): string {
   return `zvh_live_${hex(crypto.getRandomValues(new Uint8Array(32)))}`;
 }
 
+export function makeGameServerKey(): string {
+  return `zvh_game_${hex(crypto.getRandomValues(new Uint8Array(32)))}`;
+}
+
 export function makeLicenseKey(): string {
   const raw = hex(crypto.getRandomValues(new Uint8Array(20))).toUpperCase();
   return `ZERVX-${raw.match(/.{1,5}/g)!.join("-")}`;

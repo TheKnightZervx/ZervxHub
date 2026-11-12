@@ -1,9 +1,10 @@
 -- ZervxHub Worker-backed license validator
 -- Install as a Script in ServerScriptService for an experience you own.
--- Disable the older ZervxHub_v1_3_KeyAuth.server.lua while using this validator.
+-- Use only one ZervxHub validator for the ZervxHub_VerifyKey RemoteFunction.
 
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local ServerStorage = game:GetService("ServerStorage")
 local HttpService = game:GetService("HttpService")
 
 local API_BASE = "https://YOUR-WORKER.workers.dev"
@@ -36,6 +37,10 @@ local function verify(player, submittedKey)
     if API_BASE:find("YOUR%-WORKER") then
         return false, "Key service is not configured yet."
     end
+    local serverKey = ServerStorage:FindFirstChild("ZervxHubGameServerKey")
+    if not serverKey or not serverKey:IsA("StringValue") or serverKey.Value == "" then
+        return false, "Key service is not configured yet."
+    end
     if game.GameId <= 0 then
         return false, "This experience has no valid Universe ID."
     end
@@ -55,11 +60,16 @@ local function verify(player, submittedKey)
         return HttpService:RequestAsync({
             Url = API_BASE .. "/v2/keys/validate",
             Method = "POST",
-            Headers = {["Content-Type"] = "application/json"},
+            Headers = {
+                ["Content-Type"] = "application/json",
+                ["x-game-server-key"] = serverKey.Value,
+            },
             Body = HttpService:JSONEncode({
                 key = key,
                 universeId = tostring(game.GameId),
                 robloxUserId = tostring(player.UserId),
+                requestId = HttpService:GenerateGUID(false),
+                timestamp = os.time(),
             }),
         })
     end)
@@ -91,6 +101,8 @@ local function verify(player, submittedKey)
         license_bound_to_another_user = "This license is already bound to another Roblox account.",
         developer_suspended = "ZervxHub access for this game is paused.",
         invalid_request = "Key request is invalid.",
+        server_credential_invalid = "Key service setup is incomplete. Contact the game developer.",
+        request_replayed = "This key request has already been used. Try again.",
         rate_limited = "Too many attempts. Wait a minute.",
     }
     return false, reasons[data.reason] or "Key verification failed."

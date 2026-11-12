@@ -14,6 +14,8 @@ async function createDatabase() {
     "0002_lookup_indexes.sql",
     "0003_dashboard_accounts_and_subscriptions.sql",
     "0004_license_account_binding.sql",
+    "0005_game_server_credentials.sql",
+    "0006_game_validation_replay_protection.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(migrationUrl(name)), "utf8"));
   }
@@ -72,6 +74,8 @@ test("migrations create isolated developer, game, and license tables", async () 
     "developer_subscriptions",
     "developers",
     "discord_integrations",
+    "game_server_keys",
+    "game_validation_requests",
     "games",
     "keys",
     "license_events",
@@ -84,6 +88,9 @@ test("migrations create isolated developer, game, and license tables", async () 
   ).all().map((row) => row.name);
   assert.ok(indexes.includes("idx_keys_developer_discord_created"));
   assert.ok(indexes.includes("idx_games_developer"));
+  assert.ok(indexes.includes("idx_games_developer_universe"));
+  assert.ok(indexes.includes("idx_game_server_keys_active_universe"));
+  assert.ok(indexes.includes("idx_game_validation_requests_expiry"));
   assert.ok(indexes.includes("idx_discord_integrations_developer"));
   assert.ok(indexes.includes("idx_developer_sessions_developer"));
   assert.ok(indexes.includes("idx_license_validation_developer_date"));
@@ -97,6 +104,19 @@ test("migrations create isolated developer, game, and license tables", async () 
   db.prepare(
     "INSERT INTO games (id, developer_id, universe_id, name, status, created_at) VALUES (?, ?, ?, ?, 'approved', ?)"
   ).run("game-1", "dev-1", "12345", "One Game", 1);
+  db.prepare(
+    "INSERT INTO game_server_keys (key_hash, universe_id, developer_id, created_at) VALUES (?, ?, ?, ?)"
+  ).run("server-hash", "12345", "dev-1", 2);
+  assert.throws(() => {
+    db.prepare(
+      "INSERT INTO game_server_keys (key_hash, universe_id, developer_id, created_at) VALUES (?, ?, ?, ?)"
+    ).run("cross-tenant-server-hash", "12345", "dev-2", 2);
+  });
+  assert.throws(() => {
+    db.prepare(
+      "INSERT INTO game_server_keys (key_hash, universe_id, developer_id, created_at) VALUES (?, ?, ?, ?)"
+    ).run("duplicate-server-hash", "12345", "dev-1", 3);
+  });
 
   assert.throws(() => {
     db.prepare(
@@ -154,6 +174,11 @@ test("dashboard migration preserves existing rows and backfills public identifie
 
   db.exec(await readFile(fileURLToPath(migrationUrl("0003_dashboard_accounts_and_subscriptions.sql")), "utf8"));
   db.exec(await readFile(fileURLToPath(migrationUrl("0004_license_account_binding.sql")), "utf8"));
+  db.prepare(
+    "INSERT INTO games (id, developer_id, universe_id, name, status, created_at) VALUES (?, ?, ?, ?, 'approved', ?)"
+  ).run("existing-game", "existing-developer", "12345", "Existing Game", 13);
+  db.exec(await readFile(fileURLToPath(migrationUrl("0005_game_server_credentials.sql")), "utf8"));
+  db.exec(await readFile(fileURLToPath(migrationUrl("0006_game_validation_replay_protection.sql")), "utf8"));
   const apiKey = db.prepare(
     "SELECT developer_id, public_id FROM developer_api_keys WHERE key_hash = ?"
   ).get("existing-api-hash");

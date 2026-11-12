@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
 import { DatabaseSync } from "node:sqlite";
-import { webcrypto } from "node:crypto";
+import { randomUUID, webcrypto } from "node:crypto";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { build } from "esbuild";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -78,6 +78,8 @@ async function createApi({ oauth = true } = {}) {
     "0002_lookup_indexes.sql",
     "0003_dashboard_accounts_and_subscriptions.sql",
     "0004_license_account_binding.sql",
+    "0005_game_server_credentials.sql",
+    "0006_game_validation_replay_protection.sql",
   ]) {
     db.exec(await readFile(fileURLToPath(new URL(`../migrations/${name}`, import.meta.url)), "utf8"));
   }
@@ -168,6 +170,23 @@ async function createApi({ oauth = true } = {}) {
 const json = (response) => response.json();
 const adminHeaders = { "x-admin-token": ADMIN_TOKEN };
 const browserHeaders = (cookie) => ({ origin: WEB_ORIGIN, cookie });
+const gameServerHeaders = (serverKey) => ({ "x-game-server-key": serverKey });
+const validationBody = (key, universeId, robloxUserId) => ({
+  key,
+  universeId,
+  robloxUserId,
+  requestId: randomUUID(),
+  timestamp: Math.floor(Date.now() / 1000),
+});
+
+async function rotateGameServerKey(api, cookie, universeId) {
+  const response = await api.request(
+    `/v2/dashboard/games/${universeId}/server-key/rotate`,
+    { body: {}, headers: browserHeaders(cookie) }
+  );
+  assert.equal(response.status, 201);
+  return (await json(response)).serverKey;
+}
 
 test("Discord OAuth creates a hashed, expiring session and logout revokes it", async () => {
   const api = await createApi();
@@ -290,6 +309,17 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
       headers: adminHeaders,
     });
     assert.equal(approved.status, 200);
+    const serverKey = await rotateGameServerKey(api, one.cookie, "12345");
+    const gameList = await api.request("/v2/dashboard/games", {
+      method: "GET",
+      headers: { cookie: one.cookie },
+    });
+    assert.equal((await json(gameList)).games[0].serverKeyConfigured, 1);
+    const crossTenantRotation = await api.request(
+      "/v2/dashboard/games/12345/server-key/rotate",
+      { body: {}, headers: browserHeaders(two.cookie) }
+    );
+    assert.equal(crossTenantRotation.status, 404);
 
     for (const hours of [0, 8761, 1.5, "24"]) {
       const invalid = await api.request("/v2/dashboard/licenses", {
@@ -331,7 +361,8 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
     assert.deepEqual(await json(crossRevoke), { revoked: false });
 
     const validation = await api.request("/v2/keys/validate", {
-      body: { key: created.key, universeId: "12345", robloxUserId: USER_ONE },
+      body: validationBody(created.key, "12345", USER_ONE),
+      headers: gameServerHeaders(serverKey),
     });
     assert.equal(validation.status, 200);
     assert.equal((await json(validation)).valid, true);
@@ -339,7 +370,8 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
       .get(created.licenseId).bound_roblox_user_id, USER_ONE);
 
     const replay = await api.request("/v2/keys/validate", {
-      body: { key: created.key, universeId: "12345", robloxUserId: USER_TWO },
+      body: validationBody(created.key, "12345", USER_TWO),
+      headers: gameServerHeaders(serverKey),
     });
     assert.equal(replay.status, 403);
     assert.equal((await json(replay)).reason, "license_bound_to_another_user");
@@ -368,7 +400,8 @@ test("dashboard APIs isolate tenants and manage games, licenses, usage, keys, an
     });
     assert.deepEqual(await json(revoke), { revoked: true });
     const revokedValidation = await api.request("/v2/keys/validate", {
-      body: { key: created.key, universeId: "12345", robloxUserId: MEMBER },
+      body: validationBody(created.key, "12345", MEMBER),
+      headers: gameServerHeaders(serverKey),
     });
     assert.equal(revokedValidation.status, 401);
     const revokedHistory = await api.request(`/v2/dashboard/licenses/${created.licenseId}/history`, {
@@ -528,6 +561,7 @@ test("concurrent first validations bind a license to exactly one Roblox account"
       headers: adminHeaders,
     });
     assert.equal(approval.status, 200);
+    const serverKey = await rotateGameServerKey(api, session.cookie, "12345");
     const issued = await api.request("/v2/dashboard/licenses", {
       body: { discordUserId: MEMBER, universeId: "12345", expiresInHours: 24 },
       headers: browserHeaders(session.cookie),
@@ -536,7 +570,8 @@ test("concurrent first validations bind a license to exactly one Roblox account"
 
     const responses = await Promise.all([USER_ONE, USER_TWO].map((robloxUserId) =>
       api.request("/v2/keys/validate", {
-        body: { key: license.key, universeId: "12345", robloxUserId },
+        body: validationBody(license.key, "12345", robloxUserId),
+        headers: gameServerHeaders(serverKey),
       })
     ));
     assert.deepEqual(responses.map((response) => response.status).sort(), [200, 403]);
@@ -553,27 +588,140 @@ test("concurrent first validations bind a license to exactly one Roblox account"
   }
 });
 
+test("license validation requires a game-scoped server credential and supports rotation and revocation", async () => {
+  const api = await createApi();
+  api.resetRateLimits();
+  try {
+    const session = await api.signIn(USER_ONE, "Developer One");
+    const registration = await api.request("/v2/dashboard/games", {
+      body: { universeId: "12345", name: "One Game" },
+      headers: browserHeaders(session.cookie),
+    });
+    assert.equal(registration.status, 201);
+    const approval = await api.request("/v2/admin/games/review", {
+      body: { universeId: "12345", status: "approved" },
+      headers: adminHeaders,
+    });
+    assert.equal(approval.status, 200);
+    const firstServerKey = await rotateGameServerKey(api, session.cookie, "12345");
+    const issued = await api.request("/v2/dashboard/licenses", {
+      body: { discordUserId: MEMBER, universeId: "12345", expiresInHours: 24 },
+      headers: browserHeaders(session.cookie),
+    });
+    const license = await json(issued);
+
+    const staleBody = validationBody(license.key, "12345", USER_ONE);
+    staleBody.timestamp -= 61;
+    const staleRequest = await api.request("/v2/keys/validate", {
+      body: staleBody,
+      headers: gameServerHeaders(firstServerKey),
+    });
+    assert.equal(staleRequest.status, 400);
+    assert.equal((await json(staleRequest)).reason, "invalid_request");
+
+    const spoofed = await api.request("/v2/keys/validate", {
+      body: validationBody(license.key, "12345", USER_ONE),
+    });
+    assert.equal(spoofed.status, 401);
+    assert.equal((await json(spoofed)).reason, "server_credential_invalid");
+    assert.equal(api.db.prepare("SELECT bound_roblox_user_id FROM keys WHERE public_id = ?")
+      .get(license.licenseId).bound_roblox_user_id, null);
+
+    const firstValidationBody = validationBody(license.key, "12345", USER_ONE);
+    const firstValidation = await api.request("/v2/keys/validate", {
+      body: firstValidationBody,
+      headers: gameServerHeaders(firstServerKey),
+    });
+    assert.equal(firstValidation.status, 200);
+    const repeatedRequest = await api.request("/v2/keys/validate", {
+      body: firstValidationBody,
+      headers: gameServerHeaders(firstServerKey),
+    });
+    assert.equal(repeatedRequest.status, 409);
+    assert.equal((await json(repeatedRequest)).reason, "request_replayed");
+    const caseVariantReplay = await api.request("/v2/keys/validate", {
+      body: { ...firstValidationBody, requestId: firstValidationBody.requestId.toUpperCase() },
+      headers: gameServerHeaders(firstServerKey),
+    });
+    assert.equal(caseVariantReplay.status, 409);
+    assert.equal(api.db.prepare("SELECT validation_count FROM keys WHERE public_id = ?")
+      .get(license.licenseId).validation_count, 1);
+
+    const secondServerKey = await rotateGameServerKey(api, session.cookie, "12345");
+    assert.notEqual(secondServerKey, firstServerKey);
+    const storedKey = api.db.prepare(
+      "SELECT key_hash FROM game_server_keys WHERE universe_id = ? AND revoked_at IS NULL"
+    ).get("12345");
+    assert.notEqual(storedKey.key_hash, secondServerKey);
+
+    const oldCredential = await api.request("/v2/keys/validate", {
+      body: validationBody(license.key, "12345", USER_ONE),
+      headers: gameServerHeaders(firstServerKey),
+    });
+    assert.equal(oldCredential.status, 401);
+    const currentCredential = await api.request("/v2/keys/validate", {
+      body: validationBody(license.key, "12345", USER_ONE),
+      headers: gameServerHeaders(secondServerKey),
+    });
+    assert.equal(currentCredential.status, 200);
+
+    const revoked = await api.request("/v2/dashboard/games/12345/server-key/revoke", {
+      body: {},
+      headers: browserHeaders(session.cookie),
+    });
+    assert.deepEqual(await json(revoked), { revoked: true });
+    const afterRevoke = await api.request("/v2/keys/validate", {
+      body: validationBody(license.key, "12345", USER_ONE),
+      headers: gameServerHeaders(secondServerKey),
+    });
+    assert.equal(afterRevoke.status, 401);
+    assert.equal((await json(afterRevoke)).reason, "server_credential_invalid");
+  } finally {
+    await api.close();
+  }
+});
+
 test("legacy V1 licenses require and bind a Roblox account on first validation", async () => {
   const api = await createApi();
   api.resetRateLimits();
   try {
+    const session = await api.signIn(USER_ONE, "Developer One");
+    const registration = await api.request("/v2/dashboard/games", {
+      body: { universeId: "12345", name: "One Game" },
+      headers: browserHeaders(session.cookie),
+    });
+    assert.equal(registration.status, 201);
+    const approval = await api.request("/v2/admin/games/review", {
+      body: { universeId: "12345", status: "approved" },
+      headers: adminHeaders,
+    });
+    assert.equal(approval.status, 200);
+    const serverKey = await rotateGameServerKey(api, session.cookie, "12345");
     const issued = await api.request("/v1/keys/issue", {
       body: { discordUserId: MEMBER, allowedUniverseIds: ["12345"] },
       headers: adminHeaders,
     });
     assert.equal(issued.status, 201);
     const { key } = await json(issued);
+    const unauthenticated = await api.request("/v1/keys/validate", {
+      body: validationBody(key, "12345", USER_ONE),
+    });
+    assert.equal(unauthenticated.status, 401);
+    assert.equal((await json(unauthenticated)).reason, "server_credential_invalid");
+
     const missingIdentity = await api.request("/v1/keys/validate", {
       body: { key, universeId: "12345" },
     });
     assert.equal(missingIdentity.status, 400);
 
     const firstUse = await api.request("/v1/keys/validate", {
-      body: { key, universeId: "12345", robloxUserId: USER_ONE },
+      body: validationBody(key, "12345", USER_ONE),
+      headers: gameServerHeaders(serverKey),
     });
     assert.equal(firstUse.status, 200);
     const replay = await api.request("/v1/keys/validate", {
-      body: { key, universeId: "12345", robloxUserId: USER_TWO },
+      body: validationBody(key, "12345", USER_TWO),
+      headers: gameServerHeaders(serverKey),
     });
     assert.equal(replay.status, 403);
     assert.equal((await json(replay)).reason, "license_bound_to_another_user");

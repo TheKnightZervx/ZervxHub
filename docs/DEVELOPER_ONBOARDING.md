@@ -22,7 +22,7 @@ Never request or store a developer's raw API key after delivery. Do not put keys
 5. The developer API key can be rotated in the dashboard. Rotation revokes every active key for that account and returns one replacement once. Store it privately and use it only in trusted server-side requests.
 6. Connect a Discord guild through `POST /v2/admin/discord-integrations`. A guild is mapped to one developer at a time. Review the intended developer before changing an existing integration.
 7. Configure the Discord bot in its own host with the guild ID, Discord credentials, Worker URL, and a dedicated bot API token. Configure the matching token as the Worker's `BOT_API_TOKEN` secret. Do not give the bot the admin token.
-8. Test `/getkey`, `/revoke-key`, the Roblox server validator, expiry, and game scoping using test data before inviting real users.
+8. Create a per-game server key in the dashboard and place it in a `StringValue` under Roblox `ServerStorage`; do not use a developer API key for game validation. Test `/getkey`, `/revoke-key`, the Roblox server validator, expiry, and game scoping using test data before inviting real users.
 
 The browser session is an opaque random token in a Secure, HttpOnly, SameSite=Lax cookie with a seven-day lifetime. D1 stores only its HMAC using `KEY_PEPPER`; logout revokes the session. Mutating dashboard routes require an exact `Origin` match to `CORS_ORIGIN`. Discord OAuth state is random, short-lived, and checked against a host-only HttpOnly cookie. The application does not implement password or email-based recovery.
 

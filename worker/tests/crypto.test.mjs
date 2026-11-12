@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { after, before, test } from "node:test";
-import { createHmac } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -52,6 +52,8 @@ class MockD1 {
   developers = new Map();
   developerApiKeys = new Map();
   games = new Map();
+  gameServerKeys = new Map();
+  validationRequests = new Map();
 
   prepare(sql) {
     let args = [];
@@ -112,6 +114,20 @@ class MockD1 {
           return dev ? { developer_id: game.developerId, developer_status: dev.status } : null;
         }
 
+        if (normalized.startsWith("SELECT k.developer_id AS developerId")) {
+          const [keyHash, universeId] = args;
+          const key = db.gameServerKeys.get(keyHash);
+          const game = [...db.games.values()].find(
+            (row) => row.universeId === universeId &&
+              row.developerId === key?.developerId &&
+              row.status === "approved"
+          );
+          const developer = key && db.developers.get(key.developerId);
+          return key && key.universeId === universeId && !key.revokedAt && game && developer
+            ? { developerId: key.developerId, developerStatus: developer.status }
+            : null;
+        }
+
         if (normalized.startsWith("SELECT id FROM games")) {
           const [developerId, universeId] = args;
           const game = [...db.games.values()].find(
@@ -131,9 +147,29 @@ class MockD1 {
               .map(({ universeId, name, status, verifiedAt }) => ({ universeId, name, status, verifiedAt })),
           };
         }
+
         return { results: [] };
       },
       async run() {
+        if (normalized.startsWith("DELETE FROM game_validation_requests")) {
+          const [now] = args;
+          let changes = 0;
+          for (const [requestId, request] of db.validationRequests) {
+            if (request.expiresAt <= now) {
+              db.validationRequests.delete(requestId);
+              changes++;
+            }
+          }
+          return { meta: { changes } };
+        }
+
+        if (normalized.startsWith("INSERT OR IGNORE INTO game_validation_requests")) {
+          const [requestId, universeId, expiresAt] = args;
+          if (db.validationRequests.has(requestId)) return { meta: { changes: 0 } };
+          db.validationRequests.set(requestId, { universeId, expiresAt });
+          return { meta: { changes: 1 } };
+        }
+
         if (normalized.startsWith("INSERT INTO developers")) {
           const [id, discordUserId, displayName, status, createdAt] = args;
           db.developers.set(id, { id, discordUserId, displayName, status, createdAt });
@@ -243,6 +279,26 @@ function createTestEnv(pepper = "test-secret-pepper", db = new MockD1()) {
   };
 }
 
+async function addGameServerKey(env, developerId, universeId) {
+  const serverKey = `zvh_game_test_${developerId}_${universeId}`;
+  const keyHash = await cryptoMod.hashCredential(serverKey, env.KEY_PEPPER);
+  env.DB.gameServerKeys.set(keyHash, {
+    keyHash,
+    universeId,
+    developerId,
+    revokedAt: null,
+  });
+  return serverKey;
+}
+
+const validationBody = (key, universeId, robloxUserId) => ({
+  key,
+  universeId,
+  robloxUserId,
+  requestId: randomUUID(),
+  timestamp: Math.floor(Date.now() / 1000),
+});
+
 async function apiRequest(env, path, options = {}) {
   const { method = "POST", body, headers = {} } = options;
   const req = new Request(`https://test.zervxhub.dev${path}`, {
@@ -305,6 +361,7 @@ test("3. key issuance and subsequent validation using HMAC pepper", async () => 
   // Setup developer and approved game
   env.DB.developers.set(devId, { id: devId, status: "active" });
   env.DB.games.set("g1", { id: "g1", developerId: devId, universeId: "12345", status: "approved" });
+  const serverKey = await addGameServerKey(env, devId, "12345");
   const devApiKey = "zvh_live_0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef";
   const devKeyHash = await cryptoMod.hashCredential(devApiKey, env.KEY_PEPPER);
   env.DB.developerApiKeys.set(devKeyHash, { keyHash: devKeyHash, developerId: devId, revokedAt: null });
@@ -324,7 +381,8 @@ test("3. key issuance and subsequent validation using HMAC pepper", async () => 
 
   // Validate key
   const validateRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: issueRes.data.key, universeId: "12345", robloxUserId: "99999" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(issueRes.data.key, "12345", "99999"),
   });
   assert.equal(validateRes.status, 200);
   assert.equal(validateRes.data.valid, true);
@@ -345,10 +403,12 @@ test("4. incorrect key rejection: modified key fails validation", async () => {
     expiresAt: Math.floor(Date.now() / 1000) + 3600,
     allowedUniverseIds: "12345",
   });
+  const serverKey = await addGameServerKey(env, devId, "12345");
 
   // Valid key passes
   const validRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: rawKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(rawKey, "12345", "100"),
   });
   assert.equal(validRes.status, 200);
   assert.equal(validRes.data.valid, true);
@@ -356,7 +416,8 @@ test("4. incorrect key rejection: modified key fails validation", async () => {
   // Tampered key fails with 401
   const tamperedKey = "ZERVX-AAAAA-BBBBB-CCCCC-EEEEE";
   const invalidRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: tamperedKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(tamperedKey, "12345", "100"),
   });
   assert.equal(invalidRes.status, 401);
   assert.equal(invalidRes.data.valid, false);
@@ -375,6 +436,7 @@ test("5. incorrect pepper rejection: key issued with pepper A fails on pepper B"
 
   db.developers.set(devId, { id: devId, status: "active" });
   db.games.set("g1", { id: "g1", developerId: devId, universeId: "12345", status: "approved" });
+  const serverKey = await addGameServerKey(envA, devId, "12345");
 
   const rawKey = "ZERVX-11111-22222-33333-44444";
   // Stored with Pepper A
@@ -389,14 +451,16 @@ test("5. incorrect pepper rejection: key issued with pepper A fails on pepper B"
 
   // Server running with Pepper A accepts key
   const resA = await apiRequest(envA, "/v2/keys/validate", {
-    body: { key: rawKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(rawKey, "12345", "100"),
   });
   assert.equal(resA.status, 200);
   assert.equal(resA.data.valid, true);
 
   // Server running with Pepper B rejects key
   const resB = await apiRequest(envB, "/v2/keys/validate", {
-    body: { key: rawKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(rawKey, "12345", "100"),
   });
   assert.equal(resB.status, 401);
   assert.equal(resB.data.valid, false);
@@ -412,6 +476,7 @@ test("6. existing credential compatibility: legacy SHA-256 keys work and upgrade
   // Pre-pepper legacy hash is plain SHA-256
   const legacyHash = await cryptoMod.sha256(rawLegacyKey);
   const modernHmac = await cryptoMod.hashCredential(rawLegacyKey, env.KEY_PEPPER);
+  const serverKey = await addGameServerKey(env, devId, "12345");
 
   assert.notEqual(legacyHash, modernHmac);
 
@@ -426,7 +491,8 @@ test("6. existing credential compatibility: legacy SHA-256 keys work and upgrade
 
   // Validation with modern server accepts the legacy credential seamlessly
   const validateRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: rawLegacyKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(rawLegacyKey, "12345", "100"),
   });
   assert.equal(validateRes.status, 200);
   assert.equal(validateRes.data.valid, true);
@@ -464,6 +530,7 @@ test("7. revoked key rejection: revoked keys cannot be validated", async () => {
     expiresAt: Math.floor(Date.now() / 1000) + 3600,
     allowedUniverseIds: "12345",
   });
+  const serverKey = await addGameServerKey(env, devId, "12345");
 
   // Revoke the key
   const revokeRes = await apiRequest(env, "/v2/keys/revoke", {
@@ -476,7 +543,8 @@ test("7. revoked key rejection: revoked keys cannot be validated", async () => {
 
   // Validate fails
   const res = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: rawKey, universeId: "12345", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey },
+    body: validationBody(rawKey, "12345", "100"),
   });
   assert.equal(res.status, 401);
   assert.equal(res.data.reason, "invalid_or_revoked");
@@ -500,16 +568,20 @@ test("8. cross-developer credential isolation", async () => {
     expiresAt: Math.floor(Date.now() / 1000) + 3600,
     allowedUniverseIds: "11111",
   });
+  const serverKey1 = await addGameServerKey(env, dev1, "11111");
+  const serverKey2 = await addGameServerKey(env, dev2, "22222");
 
   // Valid for Game 1 (Developer 1)
   const okRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: key1, universeId: "11111", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey1 },
+    body: validationBody(key1, "11111", "100"),
   });
   assert.equal(okRes.status, 200);
 
   // Attempt to use Key 1 for Game 2 (Developer 2) fails closed
   const crossRes = await apiRequest(env, "/v2/keys/validate", {
-    body: { key: key1, universeId: "22222", robloxUserId: "100" },
+    headers: { "x-game-server-key": serverKey2 },
+    body: validationBody(key1, "22222", "100"),
   });
   assert.equal(crossRes.status, 401);
   assert.equal(crossRes.data.reason, "invalid_or_revoked");
