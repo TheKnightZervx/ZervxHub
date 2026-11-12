@@ -4,6 +4,7 @@ import {
   getGameServerKeyOwner,
   handleV2,
 } from "./v2";
+import { handleMobile } from "./mobile";
 import {
   isRateLimited,
   resetRateLimits,
@@ -36,6 +37,7 @@ export interface Env {
   DISCORD_OAUTH_CLIENT_ID?: string;
   DISCORD_OAUTH_CLIENT_SECRET?: string;
   DISCORD_OAUTH_REDIRECT_URI?: string;
+  MAILER?: { fetch(request: Request): Promise<Response> };
   ASSETS?: { fetch(request: Request): Promise<Response> };
 }
 
@@ -49,7 +51,7 @@ const json = (data: Json, status = 200, origin = "*") =>
       "cache-control": "no-store",
       "access-control-allow-origin": origin,
       "access-control-allow-methods": "GET, POST, OPTIONS",
-      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token",
+      "access-control-allow-headers": "content-type, x-admin-token, x-developer-key, x-game-server-key, x-bot-token, authorization",
       "vary": "origin",
     },
   });
@@ -89,6 +91,10 @@ export default {
     }
 
     const url = new URL(request.url);
+
+    // Native mobile identity/chat API is isolated from legacy developer auth.
+    const mobileResponse = await handleMobile(request, env);
+    if (mobileResponse) return mobileResponse;
 
     // Handle the new multi-developer API.
     const v2Response = await handleV2(request, env);
