@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main, "mission3-*"]
   push:
-    branches: [main, "codex/**", "mission3-*"]
+    branches: [main, "codex/**", "mission3-*", "mission4-*", "security/**"]
 
 permissions:
   contents: read
