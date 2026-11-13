@@ -2,7 +2,7 @@ name: CodeQL Security Analysis
 
 on:
   push:
-    branches: [main, "mission3-*"]
+    branches: [main, "codex/**", "mission3-*", "mission4-*", "security/**"]
   pull_request:
     branches: [main, "mission3-*"]
   schedule:
